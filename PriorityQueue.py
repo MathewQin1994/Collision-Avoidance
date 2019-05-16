@@ -1,20 +1,12 @@
 
 
 
-class PriorityQueue():
-    def __init__(self):
-        self.pq=[]
-
-
 
 
 class maxheap():
-    def __init__(self,items=None):
+    def __init__(self):
         self._heap=[None]
         self.N=0
-        if items:
-            for it in items:
-                self.insert(it)
 
     def __len__(self):
         return self.N
@@ -83,6 +75,9 @@ class minheap(maxheap):
 
 
 
+
+
+
 if __name__=="__main__":
-    mh=minheap(range(10,0,-1))
-    print(str(mh))
+    mh=minheap()
+    mh.insert(1)
