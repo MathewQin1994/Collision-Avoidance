@@ -25,13 +25,17 @@ def acceleration(u,v,r,n1,n2):
 def state_update(s,n1,n2):
     u, v, r, x, y, yaw=s
     ax,ay,ar=acceleration(u,v,r,n1,n2)
-    u1=u+ax*dt+0.005*np.random.randn()
-    v1=v+ay*dt+0.005*np.random.randn()
-    r1=r+ar*dt+0.001*np.random.randn()
+    # u1=u+ax*dt+0.005*np.random.randn()
+    # v1=v+ay*dt+0.005*np.random.randn()
+    # r1=r+ar*dt+0.001*np.random.randn()
+    u1=u+ax*dt
+    v1=v+ay*dt
+    r1=r+ar*dt
     x1=x+(u*cos(yaw)-v*sin(yaw))*dt
     y1=y+(u*sin(yaw)+v*cos(yaw))*dt
     yaw1=yaw+r*dt
     return (u1,v1,r1,x1,y1,yaw1)
+
 
 def simulation(s0,n1s,n2s):
     length=len(n1s)
@@ -109,11 +113,11 @@ def speedkeeping(s0,target_speed):
         # print("actual time is {},supposed time is{}".format(time.time() - start_time, dt * t.i))
     plt.show()
 
-def control_action_primitives(s0,target_speed,target_yaw,plot=False):
+def control_action_primitives(s0,target_speed,target_yaw,plot=False,STOP=True):
     s=s0
-    s_all=[s]
+    primitives_state=[(s[3],s[4],s[5],s[0],0)]
     yaw_control=PIDcontroller(800/60,3/60,10/60,dt)
-    speed_control=PIDcontroller(800/60,3/60,10/60,dt)
+    speed_control=PIDcontroller(3200/60,3/60,10/60,dt)
     ave_speed = target_speed * 19.56
     if plot:
         fig=plt.figure()
@@ -126,37 +130,51 @@ def control_action_primitives(s0,target_speed,target_yaw,plot=False):
         a2.axis("equal")
         a3=fig.add_subplot(2,2,3)
         a3.set_xlabel('t/s')
-        a2.set_ylabel('u/m*s-1')
-    i=0
+        a3.set_ylabel('u/m*s-1')
+    i=1
+    speed_stop=False
+    yaw_stop=False
     while True:
         d_ave=speed_control.update(target_speed-s[0])
         diff=yaw_control.update(target_yaw-s[5])
-        n1=ave_speed+d_ave+diff/2
-        n2=ave_speed+d_ave-diff/2
+        n1=min(max(ave_speed+d_ave+diff/2,0),30)
+        n2=min(max(ave_speed+d_ave-diff/2,0),30)
+        print(n1,n2)
         s=state_update(s,n1,n2)
-        s_all.append(s)
-        # if t.i%5==0:
+        primitives_state.append((s[3],s[4],s[5],s[0],i*dt))
         if plot:
-            a1.plot(i*dt,s[5],"ok")
+            a1.plot(i*dt,s[5],"ok",markersize=2)
             a1.plot([i*dt,(i+1)*dt],[target_yaw,target_yaw],"-r")
-            a2.plot(s[4],s[3],"ob")
-            a3.plot(i*dt,s[0],'ok')
+            a2.plot(s[4],s[3],"ob",markersize=2)
+            a3.plot(i*dt,s[0],'ok',markersize=2)
             a3.plot([i*dt,(i+1)*dt],[target_speed,target_speed],"-r")
-            # plt.pause(0.0001)
-        if (target_speed-s0[0])*(target_speed-s[0])<=0 and (target_yaw-s0[5])*(target_yaw-s[5])<=0:
-            break
+            plt.pause(0.0001)
+        if STOP:
+            if not speed_stop:
+                if (target_speed-s0[0])*(target_speed-s[0])<=0:
+                    speed_stop=True
+            if not yaw_stop:
+                if (target_yaw-s0[5])*(target_yaw-s[5])<=0:
+                    yaw_stop=True
+            if yaw_stop and speed_stop and i%10==0:
+                break
         i+=1
     if plot:
         plt.show()
-    return s_all
+    return primitives_state
 
 if __name__=="__main__":
-    s0=(1.2,0,0,0,0,0)
-    speed_set=(0.0,0.4,0.8,1.2)
-    yaw_set=(-pi/2,-pi/4,0.0,pi/4,pi/2)
+    s0=(0.8,0,0,0,0,0)
+    speed_set=(0.4,0.8,1.2)
+    yaw_set=('-pi/2','-pi/4','pi/4','pi/2')
     # n1s=[1000/60]*100
     # n2s=[1000/60]*100
     # simulation(s0,n1s,n2s)
     # yaw_keeping(s0,pi/4)
     # speedkeeping(s0,0.3)
-    s_all=control_action_primitives(s0,1.2,pi/4,plot=True)
+    control_primitives={}
+    for u0 in speed_set:
+        for yaw in yaw_set:
+            for u in speed_set:
+                key=",".join((str(u0),str(u),yaw))
+                control_primitives[key]=np.array(control_action_primitives((u0,0,0,0,0,0),u,eval(yaw),plot=False,STOP=True),dtype=np.float32)
