@@ -1,8 +1,5 @@
 
 
-
-
-
 class maxheap():
     def __init__(self):
         self._heap=[None]
@@ -47,7 +44,11 @@ class maxheap():
         self.swim(self.N)
 
     def pop(self):
-        it=self._heap[1]
+        it = self._heap[1]
+        if self.N==1:
+            self._heap.pop()
+            self.N -= 1
+            return it
         self._heap[1]=self._heap.pop()
         self.N-=1
         self.sink(1)
@@ -77,7 +78,7 @@ class minheap(maxheap):
 
 
 
-
 if __name__=="__main__":
     mh=minheap()
     mh.insert(1)
+    mh.pop()

@@ -15,11 +15,11 @@ from PID import PIDcontroller
 dt=0.1
 
 def acceleration(u,v,r,n1,n2):
-    ax=(58.0*r*v-6.7*u**2+15.9*r**2+0.01205*
-        (n1**2+n2**2)-0.0644*(u*(n1+n2)+0.45*r*(n1-n2)))/33.3
+    ax=(58.0*r*v-6.7*u*abs(u)+15.9*r**2+0.01205*
+        (n1*abs(n1)+n2*abs(n2))-0.0644*(u*(abs(n1)+abs(n2))+0.45*r*(abs(n1)-abs(n2))))/33.3
     ay=(-33.3*r*u-29.5*v+11.8*r)/58
     ar=(-0.17*v-2.74*r-4.78*r*abs(r)+0.45*
-        (0.01205*(n1**2-n2**2)-0.0644*(u*(n1-n2)+0.45*r*(n1+n2))))/6.1
+        (0.01205*(n1*abs(n1)-n2*abs(n2))-0.0644*(u*(abs(n1)-abs(n2))+0.45*r*(abs(n1)+abs(n2)))))/6.1
     return ax,ay,ar
 
 def state_update(s,n1,n2):
@@ -115,10 +115,10 @@ def speedkeeping(s0,target_speed):
 
 def control_action_primitives(s0,target_speed,target_yaw,plot=False,STOP=True):
     s=s0
-    primitives_state=[(s[3],s[4],s[5],s[0],0)]
+    primitives_state=[]
     yaw_control=PIDcontroller(800/60,3/60,10/60,dt)
     speed_control=PIDcontroller(3200/60,3/60,10/60,dt)
-    ave_speed = target_speed * 19.56
+    propeller_speed = target_speed * 19.56
     if plot:
         fig=plt.figure()
         a1=fig.add_subplot(2,2,1)
@@ -135,13 +135,23 @@ def control_action_primitives(s0,target_speed,target_yaw,plot=False,STOP=True):
     speed_stop=False
     yaw_stop=False
     while True:
-        d_ave=speed_control.update(target_speed-s[0])
+        d_pro=speed_control.update(target_speed-s[0])
         diff=yaw_control.update(target_yaw-s[5])
-        n1=min(max(ave_speed+d_ave+diff/2,0),30)
-        n2=min(max(ave_speed+d_ave-diff/2,0),30)
-        print(n1,n2)
+        n1=propeller_speed +d_pro+diff*8/propeller_speed
+        n2=propeller_speed +d_pro-diff*8/propeller_speed
+        if n1>25:
+            n1=25
+        elif n1<-25:
+            n1=-25
+        if n2>25:
+            n2=25
+        elif n2<-25:
+            n2=-25
+        # print(n1,n2)
         s=state_update(s,n1,n2)
-        primitives_state.append((s[3],s[4],s[5],s[0],i*dt))
+        l=np.sqrt(s[3]**2+s[4]**2)
+        if i%10==0:
+            primitives_state.append((s[3],s[4],s[5],s[0],i*dt,l))
         if plot:
             a1.plot(i*dt,s[5],"ok",markersize=2)
             a1.plot([i*dt,(i+1)*dt],[target_yaw,target_yaw],"-r")
@@ -151,30 +161,42 @@ def control_action_primitives(s0,target_speed,target_yaw,plot=False,STOP=True):
             plt.pause(0.0001)
         if STOP:
             if not speed_stop:
-                if (target_speed-s0[0])*(target_speed-s[0])<=0:
+                if target_speed-s0[0]==0:
+                    speed_stop = True
+                elif (target_speed-s0[0])*(target_speed-0.2*abs(target_speed-s0[0])/(target_speed-s0[0])-s[0])<=0:
                     speed_stop=True
             if not yaw_stop:
-                if (target_yaw-s0[5])*(target_yaw-s[5])<=0:
+                if target_yaw-s0[5]==0:
+                    if i>=50:
+                        yaw_stop=True
+                elif (target_yaw-s0[5])*(target_yaw-s[5])<=0:
                     yaw_stop=True
             if yaw_stop and speed_stop and i%10==0:
                 break
         i+=1
     if plot:
         plt.show()
+    print("u0:{} u:{} yaw:{} distance:{} time:{}".format(s0[0],target_speed,target_yaw,np.sqrt(s[3]**2+s[4]**2),i*dt))
     return primitives_state
 
-if __name__=="__main__":
-    s0=(0.8,0,0,0,0,0)
-    speed_set=(0.4,0.8,1.2)
-    yaw_set=('-pi/2','-pi/4','pi/4','pi/2')
-    # n1s=[1000/60]*100
-    # n2s=[1000/60]*100
-    # simulation(s0,n1s,n2s)
-    # yaw_keeping(s0,pi/4)
-    # speedkeeping(s0,0.3)
-    control_primitives={}
+def get_all_control_primitives(save=True):
+    speed_set=np.array([0.4,0.8],dtype=np.float64)
+    yaw_set=np.array([-pi/2,-pi/4,pi/4,pi/2,0],dtype=np.float64)
+    control_primitives=dict()
     for u0 in speed_set:
+        control_primitives[u0]=dict()
         for yaw in yaw_set:
             for u in speed_set:
-                key=",".join((str(u0),str(u),yaw))
-                control_primitives[key]=np.array(control_action_primitives((u0,0,0,0,0,0),u,eval(yaw),plot=False,STOP=True),dtype=np.float32)
+                key=(u,yaw)
+                control_primitives[u0][key]=np.array(control_action_primitives((u0,0,0,0,0,0),u,yaw,plot=False,STOP=True),dtype=np.float64)
+    if save:
+        np.save('control_primitives.npy',control_primitives)
+    return control_primitives
+
+
+
+if __name__=="__main__":
+    # s0=(0.8,0,0,0,0,0)
+    # control_action_primitives(s0, 0.8, 0, plot=True, STOP=True)
+    control_primitives=get_all_control_primitives(save=True)
+    # control_primitives=np.load('control_primitives.npy').item()
