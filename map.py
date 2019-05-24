@@ -30,9 +30,9 @@ class DynamicObstacle:
 
 
 if __name__=="__main__":
-    map_size = (50, 50)
+    map_size=(100,100)
     # rectangle_static_obstacles=((20,20,10,30),(50,20,30,10),(50,50,30,10))
-    rectangle_static_obstacles = ((20, 30, 10, 2), (30, 20, 2, 10))
+    rectangle_static_obstacles = ((20, 50, 40, 10), (50, 20, 10, 30))
     map=Map(map_size)
     fig=plt.gca()
     fig.axis([0,map_size[0],0,map_size[1]])

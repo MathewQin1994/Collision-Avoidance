@@ -1,5 +1,5 @@
 import numpy as np
-from math import sin,cos,pi
+from numpy import sin,cos,pi,ceil
 import matplotlib.pyplot as plt
 from msgdev import PeriodTimer
 import time
@@ -166,12 +166,9 @@ def control_action_primitives(s0,target_speed,target_yaw,plot=False,STOP=True):
                 elif (target_speed-s0[0])*(target_speed-0.2*abs(target_speed-s0[0])/(target_speed-s0[0])-s[0])<=0:
                     speed_stop=True
             if not yaw_stop:
-                if target_yaw-s0[5]==0:
-                    if i>=50:
-                        yaw_stop=True
-                elif (target_yaw-s0[5])*(target_yaw-s[5])<=0:
+                if (target_yaw-s0[5])*(target_yaw-s[5])<=0:
                     yaw_stop=True
-            if yaw_stop and speed_stop and i%10==0:
+            if yaw_stop and speed_stop and i%10==0 and i>=100:
                 break
         i+=1
     if plot:
@@ -181,22 +178,37 @@ def control_action_primitives(s0,target_speed,target_yaw,plot=False,STOP=True):
 
 def get_all_control_primitives(save=True):
     speed_set=np.array([0.4,0.8],dtype=np.float64)
-    yaw_set=np.array([-pi/2,-pi/4,pi/4,pi/2,0],dtype=np.float64)
+    yaw_set=np.array([-pi/4,-pi/12,pi/12,pi/4,0],dtype=np.float64)
     control_primitives=dict()
     for u0 in speed_set:
         control_primitives[u0]=dict()
         for yaw in yaw_set:
             for u in speed_set:
-                key=(u,yaw)
+                key=(u,"{:.2f}".format(yaw))
                 control_primitives[u0][key]=np.array(control_action_primitives((u0,0,0,0,0,0),u,yaw,plot=False,STOP=True),dtype=np.float64)
     if save:
         np.save('control_primitives.npy',control_primitives)
     return control_primitives
 
-
+def control_primitives_visual(control_primitives):
+    fig_num=len(control_primitives)
+    x_num=2
+    y_num=int(ceil(fig_num/x_num))
+    fig=plt.figure()
+    a=[]
+    for i, k in enumerate(control_primitives.keys()):
+        a.append(fig.add_subplot(y_num,x_num,i+1))
+        a[i].set_xlabel('y/m')
+        a[i].set_ylabel('x/m')
+        a[i].set_title(str(k))
+        for key,c in control_primitives[k].items():
+            a[i].plot([0]+c[:,1].tolist(),[0]+c[:,0].tolist())
+            a[i].annotate(str(key),(c[-1,1],c[-1,0]))
+    plt.show()
 
 if __name__=="__main__":
-    # s0=(0.8,0,0,0,0,0)
+    # s0=(0.4,0,0,0,0,0)
     # control_action_primitives(s0, 0.8, 0, plot=True, STOP=True)
     control_primitives=get_all_control_primitives(save=True)
     # control_primitives=np.load('control_primitives.npy').item()
+    control_primitives_visual(control_primitives)
