@@ -7,23 +7,7 @@ import matplotlib.pyplot as plt
 
 
 YAW={'0.79':pi/4,'0.52':pi/6,'0.26':pi/12,'-0.79':-pi/4,'-0.52':-pi/6,'-0.26':-pi/12,'0.00':0}
-map_size = (100, 100)
-# rectangle_static_obstacles = ((10, 50, 50, 10), (50, 10, 10, 40))
-rectangle_static_obstacles = ((0, 20, 80, 10), (20, 50, 80, 10))
-# rectangle_static_obstacles = ((20, 30, 12, 2), (30, 20, 2, 12))
-map=Map(map_size)
-for ob in rectangle_static_obstacles:
-    map.add_static_obstacle(type="rectangle",config=ob)
 
-
-fig=plt.gca()
-fig.axis([0,map_size[0],0,map_size[1]])
-fig.set_xlabel('E/m')
-fig.set_ylabel('N/m')
-for ob in rectangle_static_obstacles:
-    map.add_static_obstacle(type="rectangle",config=ob)
-    rect = patches.Rectangle((ob[0],ob[1]), ob[2], ob[3], color='y')
-    fig.add_patch(rect)
 
 
 class Node():
@@ -97,18 +81,17 @@ class OpenList:
 
     def update(self,item):
         it=self._heap[self._idx[item.key]]
-        if item.cost<it.cost:
-            it.state=item.state
-            it.cost = item.cost
-            it.ps = item.ps
-            it.g=item.g
-            it.father = item.father
-            self.swim(self._idx[item.key])
+        it.state=item.state
+        it.cost = item.cost
+        it.ps = item.ps
+        it.g=item.g
+        it.father = item.father
+        self.swim(self._idx[item.key])
 
 
 class DeliberativePlanner:
     def __init__(self,map):
-        self.resolution_pos=1
+        self.resolution_pos=2
         self.resolution_time=5
         self.e=4
         self.Ce=5000
@@ -121,6 +104,7 @@ class DeliberativePlanner:
         self.control_primitives=load_control_primitives()
 
     def start(self,s0,sG):
+        test_dic=dict()
         start_time=time.time()
         print('start')
         s_node=Node(s0,self.state2key(s0),0,0,1)
@@ -136,14 +120,22 @@ class DeliberativePlanner:
             current_yaw=sc.state[2]
             current_pos = np.array(sc.state[0:2])
             current_time=sc.state[4]
+
             # print(*sc.state,sc.g,sc.cost)
             # fig.plot(sc.state[1],sc.state[0],"ob",markersize=2)
+            # if sc.father is not None:
+            #     fig.plot([sc.state[1],sc.father.state[1]],[sc.state[0],sc.father.state[0]],"b")
             # plt.pause(0.0001)
+
             for ucd in self.control_primitives[current_speed].items():
+                if ucd[0][0]==0.4:
+                    continue
                 pos = current_pos + [ucd[1][-1,0] * cos(current_yaw) - ucd[1][-1,1] * sin(current_yaw), ucd[1][-1,0] * sin(current_yaw) + ucd[1][-1,1] * cos(current_yaw)]
+                if self.collision_with_static_ob(pos):
+                    continue
                 s1_state=(pos[0],pos[1],yawRange(current_yaw+YAW[ucd[0][1]]),ucd[0][0],current_time+ucd[1][-1,4])
                 s1_key=self.state2key(s1_state)
-                if s1_key not in self.closelist:
+                if not s1_key in self.closelist:
                     s1=Node(s1_state,s1_key)
                     g, Ps=self.cost_to_come(sc,s1,ucd[1][-1,5])
                     if Ps<0.2:
@@ -155,12 +147,13 @@ class DeliberativePlanner:
                     s1.father=sc
                     # print(g, h,g+self.e*h,s1_state, Ps)
                     if s1 in self.openlist:
-                        self.openlist.update(s1)
-                        # print('update')
+                        if s1.cost < self.openlist._heap[self.openlist._idx[s1.key]].cost:
+                            # test_dic.setdefault(s1_key, [self.openlist._heap[self.openlist._idx[s1_key]].state[2:]]).append(s1_state[2:])
+                            self.openlist.update(s1)
                     else:
                         self.openlist.insert(s1)
             # if time.time()-start_time>20:
-            #     break
+            #     break`
         return None
 
     def state2key(self,s_state):
@@ -177,8 +170,7 @@ class DeliberativePlanner:
     def get_Pcs(self,s,s1):
         pos_all=self.compute_trajectory(s.state[0:2],s.state[3:1:-1],s1.state[3:1:-1])
         for pos in pos_all:
-            pos_key=(int(round(pos[1]-self.map.offset[0])),int(round(pos[0]-self.map.offset[1])))
-            if pos_key[0]<0 or pos_key[0]>=100 or pos_key[1]<0 or pos_key[1]>=100 or self.map.map[pos_key[0],pos_key[1]]==1:
+            if self.collision_with_static_ob(pos):
                 return 1.0
         return 0.0
 
@@ -209,6 +201,12 @@ class DeliberativePlanner:
             pos_all.append(pos0+[ucd[i,0]*cos(yaw)-ucd[i,1]*sin(yaw),ucd[i,0]*sin(yaw)+ucd[i,1]*cos(yaw)])
         return pos_all
 
+    def collision_with_static_ob(self,pos):
+        pos_key = (int(round(pos[1] - self.map.offset[0])), int(round(pos[0] - self.map.offset[1])))
+        if pos_key[0] < 0 or pos_key[0] >= self.map.size[1] or pos_key[1] < 0 or pos_key[1] >= self.map.size[0] or self.map.map[
+            pos_key[0], pos_key[1]] == 1:
+            return True
+        return False
 
 class IntentionModel:
     def __init__(self):
@@ -243,20 +241,37 @@ if __name__=="__main__":
     # obs={'1':np.array([1,1,0,1,0]),'2':np.array([10,10,1,1,0])}
     # ob_new=im.forward(0,obs)
 
+    map_size = (100, 100)
+    rectangle_static_obstacles = ((10, 50, 50, 10), (50, 10, 10, 40))
+    # rectangle_static_obstacles = ((0, 20, 80, 10), (20, 50, 80, 10))
+    # rectangle_static_obstacles = ((20, 30, 12, 2), (30, 20, 2, 12))
+    map = Map(map_size)
+    for ob in rectangle_static_obstacles:
+        map.add_static_obstacle(type="rectangle", config=ob)
 
+    fig = plt.gca()
+    fig.axis([0, map_size[0], 0, map_size[1]])
+    fig.set_xlabel('E/m')
+    fig.set_ylabel('N/m')
+    for ob in rectangle_static_obstacles:
+        map.add_static_obstacle(type="rectangle", config=ob)
+        rect = patches.Rectangle((ob[0], ob[1]), ob[2], ob[3], color='y')
+        fig.add_patch(rect)
 
     dp=DeliberativePlanner(map)
     s0=tuple(np.array((5,5,0,0.8,0),dtype=np.float64))
     sG=tuple(np.array((80,80,0,0.4,0),dtype=np.float64))
+    fig.plot(sG[1], sG[0], "ob", markersize=5)
+
     start_time=time.time()
     tra=np.array(dp.start(s0,sG))
     print("runtime is {}".format(time.time()-start_time))
 
-    fig.plot(tra[:,1],tra[:,0])
+    fig.plot(tra[:,1],tra[:,0],"r")
     for i in range(tra.shape[0]):
         if not np.isnan(tra[i,4]):
-            fig.plot(tra[i,1],tra[i,0],"ob",markersize=2)
-    fig.plot(sG[1],sG[0],"ob",markersize=5)
+            fig.plot(tra[i,1],tra[i,0],"or",markersize=2)
+
     plt.show()
 
 

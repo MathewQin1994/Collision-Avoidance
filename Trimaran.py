@@ -182,8 +182,8 @@ def get_all_control_primitives(save=True):
     control_primitives=dict()
     for u0 in speed_set:
         control_primitives[u0]=dict()
-        for yaw in yaw_set:
-            for u in speed_set:
+        for u in speed_set:
+            for yaw in yaw_set:
                 key=(u,"{:.2f}".format(yaw))
                 control_primitives[u0][key]=np.array(control_action_primitives((u0,0,0,0,0,0),u,yaw,plot=False,STOP=True),dtype=np.float64)
     if save:
