@@ -1,4 +1,5 @@
 import numpy as np
+from numpy import sin,cos,pi,ceil
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 
@@ -28,6 +29,14 @@ class DynamicObstacle:
         self.states[0,:]=s0
 
 
+def generate_do_trajectory(x0,y0,yaw,u,t):
+    #tra=(x,y,yaw,stdx,stdy)
+    tra=np.zeros((int(t),3))
+    for i in range(tra.shape[0]):
+        tra[i,:]=[x0+i*u*cos(yaw),y0+i*u*sin(yaw),yaw]
+    return tra
+
+
 
 if __name__=="__main__":
     map_size=(100,100)
@@ -40,4 +49,8 @@ if __name__=="__main__":
         map.add_static_obstacle(type="rectangle",config=ob)
         rect = patches.Rectangle((ob[0],ob[1]), ob[2], ob[3], color='y')
         fig.add_patch(rect)
+
+
     plt.show()
+
+    # tra=generate_do_trajectory(50,100,-pi/2,1,100)

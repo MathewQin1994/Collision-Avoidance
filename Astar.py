@@ -1,5 +1,5 @@
-from numpy import sin,cos,pi
-from map import Map,DynamicObstacle
+from numpy import sin,cos,pi,exp
+from map import Map,DynamicObstacle,generate_do_trajectory
 import numpy as np
 import time
 import matplotlib.patches as patches
@@ -91,21 +91,26 @@ class OpenList:
 
 class DeliberativePlanner:
     def __init__(self,map):
-        self.resolution_pos=2
+        self.resolution_pos=1
         self.resolution_time=5
-        self.e=4
+        self.e=3
         self.Ce=5000
         self.Cg_max=500
         self.Wn=1000
         self.Wc=0.5
         self.tmax=125
         self.dmax=100
+        self.gamma=0.1
+        self.C_std=0.1
         self.map=map
         self.control_primitives=load_control_primitives()
+        self.do_tra=None
 
-    def start(self,s0,sG):
-        test_dic=dict()
-        start_time=time.time()
+    def set_dynamic_obstacle(self,do_tra,do_config=None):
+        self.do_config=do_config
+        self.do_tra=do_tra
+
+    def start(self,s0,sG,real_time_plot=False):
         print('start')
         s_node=Node(s0,self.state2key(s0),0,0,1)
         self.openlist=OpenList()
@@ -121,11 +126,21 @@ class DeliberativePlanner:
             current_pos = np.array(sc.state[0:2])
             current_time=sc.state[4]
 
-            # print(*sc.state,sc.g,sc.cost)
-            # fig.plot(sc.state[1],sc.state[0],"ob",markersize=2)
-            # if sc.father is not None:
-            #     fig.plot([sc.state[1],sc.father.state[1]],[sc.state[0],sc.father.state[0]],"b")
-            # plt.pause(0.0001)
+            if real_time_plot:
+                try:
+                    for plot_item in plot_items:
+                        fig.lines.remove(plot_item[0])
+                except:
+                    pass
+                fig.plot(sc.state[1],sc.state[0],"ob",markersize=2)
+                plot_items = []
+                for key in self.do_tra:
+                    do_y,do_x=self.do_tra[key][int(sc.state[4]),1],self.do_tra[key][int(sc.state[4]),0]
+                    plot_items.append(fig.plot(do_y,do_x,"or",markersize=5))
+                    plot_items.append(plot_circle((do_y,do_x),sc.state[4]*self.C_std))
+                if sc.father is not None:
+                    fig.plot([sc.state[1],sc.father.state[1]],[sc.state[0],sc.father.state[0]],"b")
+                plt.pause(0.0001)
 
             for ucd in self.control_primitives[current_speed].items():
                 if ucd[0][0]==0.4:
@@ -162,17 +177,23 @@ class DeliberativePlanner:
 
     def cost_to_come(self,s,s1,distance):
         Ps=s.ps
-        Pcs=self.get_Pcs(s,s1)
+        Pcs=self.get_pcs(s,s1)
+        # print(Pcs)
         Cs=self.Wn*(self.Wc*(s1.state[4]-s.state[4])/self.tmax+(1.0-self.Wc)*distance/self.dmax)
         g=s.g+Ps/self.Cg_max*((1.0-Pcs)*Cs+Pcs*self.Ce)
         return g,Ps*(1-Pcs)
 
-    def get_Pcs(self,s,s1):
+    def get_pcs(self,s,s1):
         pos_all=self.compute_trajectory(s.state[0:2],s.state[3:1:-1],s1.state[3:1:-1])
+        Pcsu=0.0
+        t=s.state[4]
         for pos in pos_all:
+            t+=2
             if self.collision_with_static_ob(pos):
                 return 1.0
-        return 0.0
+            Pcsu=max(self.collision_with_dynamic_ob(pos,t),Pcsu)
+        # Pcs=exp(-self.gamma*s1.state[4])*Pcsu
+        return Pcsu
 
     def cost_to_go(self,s1,sG):
         d=np.sqrt((s1.state[0]-sG[0])**2+(s1.state[1]-sG[1])**2)
@@ -208,6 +229,22 @@ class DeliberativePlanner:
             return True
         return False
 
+    def collision_with_dynamic_ob(self,pos,t):
+        no_pcsu=1.0
+        t=int(t)
+        for key in self.do_tra:
+            if t>=self.do_tra[key].shape[0]:
+                continue
+            d_pos=pos-self.do_tra[key][int(t),0:2]
+            stdx,stdy=t*self.C_std,t*self.C_std
+            if np.inner(d_pos,d_pos)<3**2:
+                return 1.0
+            p=1/(2*pi*stdx*stdy)*exp(-1/2*((d_pos[0]/stdx)**2+(d_pos[1]/stdy)**2))*3**2*10
+            no_pcsu*=1-p
+        return 1-no_pcsu
+
+
+
 class IntentionModel:
     def __init__(self):
         self.obs_info=[]
@@ -235,36 +272,46 @@ def yawRange(x):
         x = x + 2 * pi
     return x
 
+def plot_circle(c,r):
+    theta = np.linspace(0, 2 * np.pi, 800)
+    y, x = np.cos(theta) * r+c[0], np.sin(theta) * r+c[1]
+    circle=fig.plot(y, x, "--r")
+    return circle
+
+
+
 
 if __name__=="__main__":
-    # im=IntentionModel()
-    # obs={'1':np.array([1,1,0,1,0]),'2':np.array([10,10,1,1,0])}
-    # ob_new=im.forward(0,obs)
-
+    #地图、起点、目标
     map_size = (100, 100)
-    rectangle_static_obstacles = ((10, 50, 50, 10), (50, 10, 10, 40))
-    # rectangle_static_obstacles = ((0, 20, 80, 10), (20, 50, 80, 10))
-    # rectangle_static_obstacles = ((20, 30, 12, 2), (30, 20, 2, 12))
     map = Map(map_size)
-    for ob in rectangle_static_obstacles:
-        map.add_static_obstacle(type="rectangle", config=ob)
-
     fig = plt.gca()
     fig.axis([0, map_size[0], 0, map_size[1]])
     fig.set_xlabel('E/m')
     fig.set_ylabel('N/m')
+    s0=tuple(np.array((5,5,0,0.8,0),dtype=np.float64))
+    sG=tuple(np.array((80,80,0,0.4,0),dtype=np.float64))
+    fig.plot(sG[1], sG[0], "ob", markersize=5)
+
+    #静态障碍物
+    # rectangle_static_obstacles = ((10, 50, 50, 10), (50, 10, 10, 40))
+    # rectangle_static_obstacles = ((0, 20, 80, 10), (20, 50, 80, 10))
+    rectangle_static_obstacles = ((40, 30, 60, 10), (20, 60, 20, 20))
+
+
     for ob in rectangle_static_obstacles:
         map.add_static_obstacle(type="rectangle", config=ob)
         rect = patches.Rectangle((ob[0], ob[1]), ob[2], ob[3], color='y')
         fig.add_patch(rect)
 
-    dp=DeliberativePlanner(map)
-    s0=tuple(np.array((5,5,0,0.8,0),dtype=np.float64))
-    sG=tuple(np.array((80,80,0,0.4,0),dtype=np.float64))
-    fig.plot(sG[1], sG[0], "ob", markersize=5)
+    #动态障碍物
+    do_tra={"do1":generate_do_trajectory(50,100,-pi/2,0.70,200)}
 
+
+    dp=DeliberativePlanner(map)
     start_time=time.time()
-    tra=np.array(dp.start(s0,sG))
+    dp.set_dynamic_obstacle(do_tra)
+    tra=np.array(dp.start(s0,sG,real_time_plot=False))
     print("runtime is {}".format(time.time()-start_time))
 
     fig.plot(tra[:,1],tra[:,0],"r")
