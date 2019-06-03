@@ -134,6 +134,7 @@ def control_action_primitives(s0,target_speed,target_yaw,plot=False,STOP=True):
     i=1
     speed_stop=False
     yaw_stop=False
+    l=0
     while True:
         d_pro=speed_control.update(target_speed-s[0])
         diff=yaw_control.update(target_yaw-s[5])
@@ -148,8 +149,9 @@ def control_action_primitives(s0,target_speed,target_yaw,plot=False,STOP=True):
         elif n2<-25:
             n2=-25
         # print(n1,n2)
+        l +=s[0]*dt
         s=state_update(s,n1,n2)
-        l=np.sqrt(s[3]**2+s[4]**2)
+
         if i%10==0:
             primitives_state.append((s[3],s[4],s[5],s[0],i*dt,l))
         if plot:

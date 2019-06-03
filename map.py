@@ -4,12 +4,6 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 
 class Map:
-    def __init__(self,size,offset=(0,0)):
-        #size=(size_y,size_x)
-        self.size=size
-        self.offset=offset
-        self.map=np.zeros(size,dtype=np.int8)
-
     def add_static_obstacle(self,type,config):
         if type=="rectangle":
             #config=(y,x,dy,dx)
@@ -19,6 +13,18 @@ class Map:
             y2=min(config[0]+config[2], self.size[0])
             self.map[y1:y2,x1:x2]=1
 
+    def load_map(self,map,resolution,offset=(0,0)):
+        self.map=map
+        self.resolution = resolution
+        self.offset = offset
+        self.size=map.shape
+
+    def new_map(self,size,resolution,offset=(0,0)):
+        #size=(size_y,size_x)
+        self.size=size
+        self.resolution=resolution
+        self.offset=offset
+        self.map=np.zeros(size,dtype=np.int8)
 
 
 class DynamicObstacle:
@@ -50,7 +56,7 @@ if __name__=="__main__":
         rect = patches.Rectangle((ob[0],ob[1]), ob[2], ob[3], color='y')
         fig.add_patch(rect)
 
-
     plt.show()
+
 
     # tra=generate_do_trajectory(50,100,-pi/2,1,100)
