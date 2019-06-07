@@ -179,8 +179,9 @@ def control_action_primitives(s0,target_speed,target_yaw,plot=False,STOP=True):
     return primitives_state
 
 def get_all_control_primitives(save=True):
-    speed_set=np.array([0.4,0.8],dtype=np.float64)
-    yaw_set=np.array([-pi/4,-pi/12,pi/12,pi/4,0],dtype=np.float64)
+    speed_set=np.array([0.8],dtype=np.float64)
+    yaw_set=np.array([-pi/4,-pi/12,pi/12,pi/4,0,pi/6,-pi/6],dtype=np.float64)
+    # yaw_set = np.array([-pi / 4, -pi / 18, pi / 18, pi / 4, 0], dtype=np.float64)
     control_primitives=dict()
     for u0 in speed_set:
         control_primitives[u0]=dict()

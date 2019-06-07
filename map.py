@@ -11,7 +11,7 @@ class Map:
             y1=max(config[0], 0)
             x2=min(config[1]+config[3],self.size[1])
             y2=min(config[0]+config[2], self.size[0])
-            self.map[y1:y2,x1:x2]=1
+            self.map[y1:y2+1,x1:x2+1]=1
 
     def load_map(self,map,resolution,offset=(0,0)):
         self.map=map
@@ -45,10 +45,12 @@ def generate_do_trajectory(x0,y0,yaw,u,t):
 
 
 if __name__=="__main__":
-    map_size=(100,100)
+    map_size=(400,400)
     # rectangle_static_obstacles=((20,20,10,30),(50,20,30,10),(50,50,30,10))
-    rectangle_static_obstacles = ((20, 50, 40, 10), (50, 20, 10, 30))
-    map=Map(map_size)
+    # rectangle_static_obstacles = ((20, 50, 40, 10), (50, 20, 10, 30))
+    rectangle_static_obstacles=((90,150,110,50),(250,150,100,50),(150,250,100,100))
+    map=Map()
+    map.new_map(map_size,1,offset=(0,0))
     fig=plt.gca()
     fig.axis([0,map_size[0],0,map_size[1]])
     for ob in rectangle_static_obstacles:
