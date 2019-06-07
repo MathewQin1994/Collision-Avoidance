@@ -1,6 +1,7 @@
 import numpy as np
-from numpy import pi,exp
+from numpy import pi,exp,cos,sin
 import matplotlib.pyplot as plt
+from matplotlib.patches import Circle, Wedge, Polygon
 import time
 
 def collision_pro_montecarlo(pos_usv,pos_ob,cov,radius,sample_num,plot_show=False):
@@ -47,7 +48,7 @@ def compare():
 
 def plot_test():
     import numpy as np
-    from matplotlib.patches import Circle, Wedge, Polygon
+
     from matplotlib.collections import PatchCollection
     import matplotlib.pyplot as plt
 
@@ -96,6 +97,36 @@ def plot_test():
     plt.show()
 
 
+def plot_ship(fig,x,y,yaw,l,b):
+    x_p=l/2*cos(yaw)+x
+    y_p=l/2*sin(yaw)+y
+    theta=-(yaw*180/pi+90)
+    dtheta=np.arcsin(b/2/l)*180/pi
+    wedge=Wedge((y_p,x_p),l,theta-dtheta,theta+dtheta)
+    fig.add_patch(wedge)
+
+def get_cpa(s1,s2):
+    x1,y1,yaw1,u1,_=s1
+    x2,y2,yaw2,u2,_=s2
+    dv=np.array([u1*cos(yaw1)-u2*cos(yaw2),u1*sin(yaw1)-u2*sin(yaw2)])
+    dpos=np.array([x1-x2,y1-y2])
+    tcpa=-np.inner(dv,dpos)/np.inner(dv,dv)
+    dpos1=dpos+tcpa*dv
+    dcpa=np.sqrt(np.inner(dpos1,dpos1))
+    return tcpa,dcpa
+
+def test_cpa():
+    s1=(1,1,0.79,0.8,10)
+    s_info1=(1.2,1.2)
+    s2=(10,17,-1.57,1.0,10)
+    s_info2=(2.0,1.0)
+    ax=plt.gca()
+    ax.axis([0, 20, 0, 20])
+    print(get_cpa(s1,s2))
+    plot_ship(ax,s1[0],s1[1],s1[2],s_info1[0],s_info1[1])
+    plot_ship(ax, s2[0], s2[1], s2[2], s_info2[0], s_info2[1])
+    plt.show()
+
 if __name__=="__main__":
     # test()
     # std=5
@@ -103,4 +134,9 @@ if __name__=="__main__":
     # pos_ob=(10,10)
     # cov=[[std**2,0],[0,std**2]]
     # radius=4
-    plot_test()
+    # plot_test()
+    # ax=plt.gca()
+    # ax.axis([0, 20, 0, 20])
+    # plot_ship(ax,5,5,0.79,2,1)
+    # plt.show()
+    test_cpa()
