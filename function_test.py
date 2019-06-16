@@ -2,20 +2,30 @@ import numpy as np
 from numpy import pi,exp,cos,sin
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Wedge, Polygon
+from Astar import yawRange
 import time
+from numba import jit,prange
+from numpy.linalg import cholesky
 
-def collision_pro_montecarlo(pos_usv,pos_ob,cov,radius,sample_num,plot_show=False):
-    s=np.random.multivariate_normal(pos_ob,cov,sample_num)
+TCPA_MIN=15
+DCPA_MIN=10
+COLREGS_COST=1.0
+a=np.array([np.array([[1,2],[2,3]]),np.array([[10,2],[2,3]])])
+
+@jit(nopython=True)
+def collision_pro_montecarlo(pos_usv,pos_ob,sigma,radius,sample_num,plot_show=False):
+    # s=np.random.multivariate_normal(pos_ob,cov,sample_num)
+    s=np.vstack((np.random.normal(pos_ob[0],sigma[0],sample_num),np.random.normal(pos_ob[0],sigma[1],sample_num))).T
     distance=(s[:,0]-pos_usv[0])**2+(s[:,1]-pos_usv[1])**2
     p=np.sum(distance<radius**2)/sample_num
-    if plot_show:
-        fig = plt.figure().gca()
-        fig.plot(s[:, 1], s[:, 0], 'ob', markersize=1)
-        fig.plot(pos_usv[1], pos_usv[0], 'or', markersize=5)
-        theta = np.linspace(0, 2 * np.pi, 800)
-        y, x = np.cos(theta) * radius + pos_usv[0], np.sin(theta) * radius + pos_usv[1]
-        fig.plot(y, x, "--r")
-        plt.show()
+    # if plot_show:
+    #     fig = plt.figure().gca()
+    #     fig.plot(s[:, 1], s[:, 0], 'ob', markersize=1)
+    #     fig.plot(pos_usv[1], pos_usv[0], 'or', markersize=5)
+    #     theta = np.linspace(0, 2 * np.pi, 800)
+    #     y, x = np.cos(theta) * radius + pos_usv[0], np.sin(theta) * radius + pos_usv[1]
+    #     fig.plot(y, x, "--r")
+    #     plt.show()
     return p
 
 
@@ -26,24 +36,33 @@ def collision_pro_cal(pos_usv,pos_ob,cov,radius):
 
 
 def test_montecarlo():
-    sample_nums=100*np.array(range(1,11))
+    sample_nums=10000*np.array(range(1,11))
     p=[]
     for sample_num in sample_nums:
-        p.append(collision_pro_montecarlo(pos_usv,pos_ob,cov,radius,sample_num))
+        p.append(collision_pro_montecarlo(pos_usv,pos_ob,sigma,radius,sample_num))
     fig = plt.figure().gca()
     fig.plot(sample_nums,p)
     plt.show()
 
-def compare():
-    start_time=time.time()
-    for i in range(10000):
-        p1 = collision_pro_montecarlo(pos_usv, pos_ob, cov, radius, 800, plot_show=False)
-    print(time.time()-start_time)
+@jit(nopython=True,parallel=True)
+def compare(n):
+    # start_time=time.time()
+    a=np.zeros(n)
+    for i in prange(n):
+        a[i] = collision_pro_montecarlo(pos_usv, pos_ob, sigma, radius, 800, plot_show=False)
+        # a+=1
+    # print(time.time()-start_time)
 
-    start_time=time.time()
-    for i in range(10000):
-        p2 = collision_pro_cal(pos_usv, pos_ob, cov, radius)
-    print(time.time()-start_time)
+    # start_time1=time.time()
+    # for i in prange(n):
+    #     p1 = collision_pro_montecarlo(pos_usv, pos_ob, sigma, radius, 800, plot_show=False)
+    # print(time.time()-start_time)
+    # end_time=time.time()
+    # start_time=time.time()
+    # for i in range(10000):
+    #     p2 = collision_pro_cal(pos_usv, pos_ob, sigma, radius)
+    # print(time.time()-start_time)
+    return a
 
 
 def plot_test():
@@ -118,25 +137,109 @@ def get_cpa(s1,s2):
 def test_cpa():
     s1=(1,1,0.79,0.8,10)
     s_info1=(1.2,1.2)
-    s2=(10,17,-1.57,1.0,10)
+    s2=(1,17,-0.79,1.0,10)
     s_info2=(2.0,1.0)
     ax=plt.gca()
     ax.axis([0, 20, 0, 20])
     print(get_cpa(s1,s2))
+    print(colrges_encounter_type(s1,s2))
+
+
     plot_ship(ax,s1[0],s1[1],s1[2],s_info1[0],s_info1[1])
     plot_ship(ax, s2[0], s2[1], s2[2], s_info2[0], s_info2[1])
     plt.show()
 
+def colrges_encounter_type(s1,s2):
+    x1,y1,yaw1,u1,_=s1
+    x2,y2,yaw2,u2,_=s2
+    alpha_b=yawRange(np.arctan2(y1-y2,x1-x2)-yaw2)
+    alpha_h=yawRange(yaw1-yaw2)
+    if abs(alpha_b)<=pi/12 and abs(alpha_h)>=11*pi/12:
+        encounter_type="head on"
+    elif alpha_b>pi/12 and alpha_b<3*pi/4 and alpha_h>-11*pi/12 and alpha_h<-pi/4:
+        encounter_type="cross from left"
+    elif alpha_b>-3*pi/4 and alpha_b<-pi/12 and alpha_h>pi/4 and alpha_h<11*pi/12:
+        encounter_type="cross from right"
+    elif abs(alpha_b)>=3*pi/4 and abs(alpha_h)<=pi/4:
+        encounter_type="take over"
+    else:
+        encounter_type=None
+    return encounter_type
+
+def colrges_cost(s1,s2,encounter_type):
+    x1,y1,yaw1,u1,_=s1
+    x2,y2,yaw2,u2,_=s2
+    alpha_b=yawRange(np.arctan2(y1-y2,x1-x2)-yaw2)
+    if encounter_type=="head on" and alpha_b>-pi/8 and alpha_b<pi/2:
+        cost=COLREGS_COST
+    elif encounter_type=="cross from right" and alpha_b>-pi/4 and alpha_b<0.0:
+        cost=COLREGS_COST
+    else:
+        cost=0.0
+    return cost
+
+def time_test():
+    start_time=time.time()
+    normal_dis(10000)
+    print(time.time()-start_time)
+
+    start_time=time.time()
+    normal_dis(10000)
+    print(time.time()-start_time)
+
+@jit(nopython=True)
+def forxunhuan(n):
+    mu = np.array([[1, 5]])
+    sigma = np.array([[1, 0.5], [1.5, 3]])
+    for i in range(n):
+        a=np.random.normal(mu, sigma, 500)
+    return a
+
+@jit(nopython=True)
+def normal_dis(n):
+    for i in range(n):
+        s = np.sum(a[0][0,:])
+    return s
+
+
 if __name__=="__main__":
     # test()
-    # std=5
-    # pos_usv=(3,3)
-    # pos_ob=(10,10)
-    # cov=[[std**2,0],[0,std**2]]
-    # radius=4
+    std=5
+    pos_usv=(3,3)
+    pos_ob=(10,10)
+    sigma=(std,std)
+    radius=4
+    N=700
+    n=10
+
+    # start_time=time.time()
+    # a=compare(n)
+    # print(time.time()-start_time)
+    #
+    # start_time=time.time()
+    # for i in range(N):
+    #     a=compare(n)
+    # print(time.time()-start_time)
+    s=normal_dis(3)
+
+    # start_time = time.time()
+    # a=np.zeros(n)
+    # for i in prange(n):
+    #     a[i] = collision_pro_montecarlo(pos_usv, pos_ob, sigma, radius, 800, plot_show=False)
+    # print(time.time() - start_time)
+    #
+    # start_time = time.time()
+    # a=np.zeros(n)
+    # for i in prange(n):
+    #     a[i] = collision_pro_montecarlo(pos_usv, pos_ob, sigma, radius, 800, plot_show=False)
+    # print(time.time() - start_time)
+
+
     # plot_test()
     # ax=plt.gca()
     # ax.axis([0, 20, 0, 20])
     # plot_ship(ax,5,5,0.79,2,1)
     # plt.show()
-    test_cpa()
+    # test_cpa()
+    # time_test()
+    # normal_dis()

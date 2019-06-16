@@ -138,7 +138,7 @@ class DeliberativePlanner:
             current_speed=sc.state[3]
             if self.do_tra:
                 self.evaluate_encounter(sc)
-            print(self.collision_risk_ob)
+            # print(self.collision_risk_ob)
 
             evaluate_node+=1
 
@@ -147,7 +147,7 @@ class DeliberativePlanner:
                 pos = current_pos + [ucd[1][-1,0] * cos(current_yaw) - ucd[1][-1,1] * sin(current_yaw), ucd[1][-1,0] * sin(current_yaw) + ucd[1][-1,1] * cos(current_yaw)]
                 if self.collision_with_static_ob(pos)==1.0:
                     continue
-                s1_state=(pos[0],pos[1],yawRange(current_yaw+ucd[0][1]*pi/180),self.default_speed,current_time+ucd[1][-1,4])
+                s1_state=(pos[0],pos[1],yawRange(current_yaw+YAW[ucd[0][1]]),self.default_speed,current_time+ucd[1][-1,4])
                 s1_key=self.state2key(s1_state)
                 if not s1_key in self.closelist:
                     s1=Node(s1_state,s1_key)
@@ -190,13 +190,12 @@ class DeliberativePlanner:
                 fig.add_patch(patches.Arrow(sc.key[1], sc.key[0],0.5*sin(current_yaw),0.5*cos(current_yaw), width=0.5))
                 if self.do_tra is not None:
                     for key in self.do_tra:
-                        if int(sc.state[4])+10<self.do_tra[key].shape[0]:
-                            do_y,do_x,do_yaw=self.do_tra[key][int(sc.state[4]),1],self.do_tra[key][int(sc.state[4]),0],self.do_tra[key][int(sc.state[4]),2]
-                            do_y_next, do_x_next = self.do_tra[key][int(sc.state[4])+10, 1], self.do_tra[key][int(sc.state[4])+10, 0]
-                            plot_lines.append(fig.plot(do_y,do_x,"or",markersize=5))
-                            plot_lines.append(fig.plot([do_y,do_y_next],[do_x,do_x_next],'--r'))
-                            if key in self.collision_risk_ob:
-                                plot_patches.append(plot_colrges_cost_range(do_x,do_y,do_yaw,self.collision_risk_ob[key][0],fig))
+                        do_y,do_x,do_yaw=self.do_tra[key][int(sc.state[4]),1],self.do_tra[key][int(sc.state[4]),0],self.do_tra[key][int(sc.state[4]),2]
+                        do_y_next, do_x_next = self.do_tra[key][int(sc.state[4])+10, 1], self.do_tra[key][int(sc.state[4])+10, 0]
+                        plot_lines.append(fig.plot(do_y,do_x,"or",markersize=5))
+                        plot_lines.append(fig.plot([do_y,do_y_next],[do_x,do_x_next],'--r'))
+                        if key in self.collision_risk_ob:
+                            plot_patches.append(plot_colrges_cost_range(do_x,do_y,do_yaw,self.collision_risk_ob[key][0],fig))
                         # plot_lines.append(plot_circle((do_y,do_x),sc.state[4]*self.C_std,fig))
                 # if sc.father is not None:
                 #     fig.plot([sc.state[1],sc.father.state[1]],[sc.state[0],sc.father.state[0]],"--b")
@@ -205,14 +204,14 @@ class DeliberativePlanner:
 
     def state2key(self,s_state):
         x,y,yaw,u,t=s_state
-        return (int(round(x/self.resolution_pos)*self.resolution_pos),int(round(y/self.resolution_pos)*self.resolution_pos))
+        return (int(round(x/self.resolution_pos)*self.resolution_pos),int(round(y/self.resolution_pos)*self.resolution_pos),int(round(yaw/pi*4)))
 
     def cost_to_come(self,s,s1,distance):
         Pcs,colrges_break=self.evaluate_primitive(s,s1)
         # print(colrges_break)
         # colrges_break=0
         Ps=s.ps
-        Cs=self.Wn*(self.Wc*(s1.state[4]-s.state[4])/self.tmax+(1.0-self.Wc)*distance/self.dmax+colrges_break)
+        Cs=self.Wn*(self.Wc*(s1.state[4]-s.state[4])/self.tmax+(1.0-self.Wc)*distance/self.dmax+colrges_break/10)
         g=s.g+Ps/self.Cg_max*((1.0-Pcs)*Cs+Pcs*self.Ce)
         return g,Ps*(1-Pcs)
 
@@ -287,10 +286,6 @@ class DeliberativePlanner:
                     j+=1
                 else:
                     trajectory.append(states[i])
-                    dY,dX=states[j-1][1]-states[i][1],states[j-1][0]-states[i][0]
-                    head=np.arctan2(dY,dX)
-                    for ik in range(self.resolution_time,np.int(states[j-1][4]),self.resolution_time):
-                        trajectory.append([states[i][0]+dX*ik/(states[j-1][4]-states[i][4]),states[i][1]+dY*ik/(states[j-1][4]-states[i][4]),head,states[i][3],states[i][4]+ik])
                     trajectory.append(states[j-1])
                     i=j-1
         trajectory.append(states[i])
@@ -311,8 +306,7 @@ class DeliberativePlanner:
     #     return pos_all
 
     def compute_trajectory(self,s_state,s1_state):
-        ucd = self.control_primitives[s_state[3]][
-            (int(s1_state[4] - s_state[4]), np.int(np.round(180/pi*yawRange(s1_state[2] - s_state[2]))))]
+        ucd=self.control_primitives[s_state[3]][(int(s1_state[4]-s_state[4]),"{:.2f}".format(yawRange(s1_state[2]-s_state[2])))]
         yaw=s_state[2]
         state_all=[]
         for i in range(self.resolution_time-1,ucd.shape[0],self.resolution_time):
@@ -354,7 +348,7 @@ class DeliberativePlanner:
         pos=np.array(sc.state[:2])
         yaw,u,t=sc.state[2:]
         t=int(t)
-        self.local_range_ob=[key for key,value in self.do_tra.items() if t<value.shape[0]-10 and np.inner(value[t][0:2]-pos,value[t][0:2]-pos)<self.local_radius**2]
+        self.local_range_ob=[key for key,value in self.do_tra.items() if t<value.shape[0] and np.inner(value[t][0:2]-pos,value[t][0:2]-pos)<self.local_radius**2]
         # self.collision_risk_ob=dict()
         for key in self.local_range_ob:
             tcpa,dcpa=get_cpa(self.do_tra[key][t],sc.state)
@@ -467,7 +461,7 @@ def test_head_on():
     fig.set_xlabel('E/m')
     fig.set_ylabel('N/m')
     s0=tuple(np.array((5,5,pi/4,0.8,0),dtype=np.float64))
-    sG=tuple(np.array((78,100,-3*pi/4,0.8,0),dtype=np.float64))
+    sG=tuple(np.array((80,80,pi,0.8,0),dtype=np.float64))
     fig.plot(sG[1], sG[0], "ob", markersize=5)
 
     #静态障碍物
@@ -483,27 +477,25 @@ def test_head_on():
         rect = patches.Rectangle((ob[0], ob[1]), ob[2], ob[3], color='y')
         fig.add_patch(rect)
 
-    dp = DeliberativePlanner(map, 1, 125, 100, 1, 0.8)
     #动态障碍物
-    # do_tra={"do1":np.array(dp.start(sG, s0))}
+    do_tra={"do1":generate_do_trajectory(95,100,-3*pi/4,0.70,200)}
 
 
-
+    dp=DeliberativePlanner(map,1,125,100,1,0.8)
     start_time=time.time()
-    # dp.set_dynamic_obstacle(do_tra)
+    dp.set_dynamic_obstacle(do_tra)
     tra=np.array(dp.start(s0,sG,fig))
     print("runtime is {},closelist node number is {}".format(time.time() - start_time, len(dp.closelist)))
 
     fig.plot(tra[:,1],tra[:,0],"r")
     for i in range(tra.shape[0]):
-        if tra[i, 3] == 0.8:
+        if i%10==0:
             fig.plot(tra[i,1],tra[i,0],"or",markersize=2)
 
     # a = np.array(list(dp.closelist), dtype=np.float64)
     # fig.plot(a[:,1],a[:,0],'ob',markersize=1)
 
     plt.show()
-    return tra
 
 def test_cross():
     #地图、起点、目标
@@ -560,16 +552,15 @@ def test_static():
     fig.axis([0, map_size[0], 0, map_size[1]])
     fig.set_xlabel('E/m')
     fig.set_ylabel('N/m')
-    s0 = tuple(np.array((50, 100, 0, 0.8, 0), dtype=np.float64))
-    sG = tuple(np.array((280, 280, -pi, 0.8, 0), dtype=np.float64))
+    s0 = tuple(np.array((19, 48, 0, 0.8, 0), dtype=np.float64))
+    sG = tuple(np.array((280, 280, pi, 0.8, 0), dtype=np.float64))
     fig.plot(sG[1], sG[0], "ob", markersize=5)
 
     # 静态障碍物
-    # rectangle_static_obstacles = ((10, 50, 50, 10), (50, 10, 10, 40))
-    # rectangle_static_obstacles = ((0, 50, 60, 10), (50, 0, 10, 48))
+    rectangle_static_obstacles = ((0, 50, 60, 10), (50, 0, 10, 48))
     # rectangle_static_obstacles = ((0, 20, 80, 10), (20, 50, 80, 10))
     # rectangle_static_obstacles = ((40, 30, 60, 10), (20, 60, 20, 20))
-    rectangle_static_obstacles=((40,75,70,50),(150,75,100,50),(175,175,60,60))
+    # rectangle_static_obstacles=((40,75,70,50),(150,75,100,50),(175,175,60,60))
     # rectangle_static_obstacles = ()
 
     for ob in rectangle_static_obstacles:
@@ -577,14 +568,13 @@ def test_static():
         rect = patches.Rectangle((ob[0], ob[1]), ob[2], ob[3], color='y')
         fig.add_patch(rect)
 
-    dp = DeliberativePlanner(map, 1, 125, 100, 1, 0.8,1.5)
     # 动态障碍物
-    do_tra = {"do1": np.array(dp.start(sG, s0))}
+    # do_tra = {"do1": generate_do_trajectory(10, 95, -0.7, 0.7, 200)}
 
-
+    dp = DeliberativePlanner(map, 1, 125, 100, 1, 0.8,1.5)
     start_time = time.time()
-    dp.set_dynamic_obstacle(do_tra)
-    tra = np.array(dp.start(s0, sG,fig))
+    # dp.set_dynamic_obstacle(do_tra)
+    tra = np.array(dp.start(s0, sG))
     print("runtime is {},closelist node number is {},trajectory total time is {}".format(time.time() - start_time,len(dp.closelist),tra[-1, -1]))
     fig.plot(tra[:, 1], tra[:, 0], "r")
     for i in range(tra.shape[0]):
@@ -596,7 +586,6 @@ def test_static():
 
     plt.show()
     return tra
-
 
 if __name__=="__main__":
     # #地图、起点、目标
@@ -643,8 +632,8 @@ if __name__=="__main__":
     #
     # plt.show()
     # test_cross()
-    tra=test_head_on()
-    # tra=test_static()
+    # test_head_on()
+    tra=test_static()
 
 
 

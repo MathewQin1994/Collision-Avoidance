@@ -36,10 +36,9 @@ class DynamicObstacle:
 
 
 def generate_do_trajectory(x0,y0,yaw,u,t):
-    #tra=(x,y,yaw,stdx,stdy)
-    tra=np.zeros((int(t),3))
+    tra=np.zeros((int(t),5))
     for i in range(tra.shape[0]):
-        tra[i,:]=[x0+i*u*cos(yaw),y0+i*u*sin(yaw),yaw]
+        tra[i,:]=[x0+i*u*cos(yaw),y0+i*u*sin(yaw),yaw,u,i]
     return tra
 
 

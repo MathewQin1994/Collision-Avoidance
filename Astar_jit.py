@@ -1,15 +1,17 @@
+from numba import jit,prange
 from numpy import sin,cos,pi,exp
 from map import Map,DynamicObstacle,generate_do_trajectory
 import numpy as np
 import time
-import os
+import os,json
 import copy
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 
 
-YAW={'0.79':pi/4,'0.52':pi/6,'0.26':pi/12,'-0.79':-pi/4,'-0.52':-pi/6,'-0.26':-pi/12,'0.00':0,'1.05':pi/3,'-1.05':-pi/3,'0.17':pi/18,'-0.17':-pi/18,'1.57':pi/2,'-1.57':-pi/2}
 
+YAW={'0.79':pi/4,'0.52':pi/6,'0.26':pi/12,'-0.79':-pi/4,'-0.52':-pi/6,'-0.26':-pi/12,'0.00':0,'1.05':pi/3,'-1.05':-pi/3,'0.17':pi/18,'-0.17':-pi/18,'1.57':pi/2,'-1.57':-pi/2}
+Wn,Wc,Cg_max,Ce=1000,0.5,1000,1000
 
 
 
@@ -94,21 +96,17 @@ class OpenList:
 
 
 class DeliberativePlanner:
-    def __init__(self,map,resolution_pos,tmax,dmax,resolution_time,default_speed,e=1.5):
+    def __init__(self,map,resolution_pos,resolution_time,default_speed,primitive_file_path,e=1.5):
+        self.map=map
         self.resolution_pos=resolution_pos
         self.resolution_time=resolution_time
         self.e=e
-        self.Ce=1000
-        self.Cg_max=1000
-        self.Wn=1000
-        self.Wc=0.5
         self.default_speed=default_speed
-        self.tmax=tmax
-        self.dmax=dmax
+        self.dmax=np.sum(map.size)*map.resolution/2
+        self.tmax=self.dmax/self.default_speed
         self.gamma=0.1
         self.C_std=0.1
-        self.map=map
-        self.control_primitives=load_control_primitives()
+        self.control_primitives=load_control_primitives(primitive_file_path)
         self.do_tra=None
         self.local_radius=80
         self.tcpa_min=40
@@ -138,28 +136,22 @@ class DeliberativePlanner:
             current_speed=sc.state[3]
             if self.do_tra:
                 self.evaluate_encounter(sc)
-            print(self.collision_risk_ob)
-
+            # print(self.collision_risk_ob)
             evaluate_node+=1
-
 
             for ucd in self.control_primitives[current_speed].items():
                 pos = current_pos + [ucd[1][-1,0] * cos(current_yaw) - ucd[1][-1,1] * sin(current_yaw), ucd[1][-1,0] * sin(current_yaw) + ucd[1][-1,1] * cos(current_yaw)]
-                if self.collision_with_static_ob(pos)==1.0:
+                if collision_with_static_ob(pos,self.map.map,self.map.offset,self.map.resolution)==1.0:
                     continue
                 s1_state=(pos[0],pos[1],yawRange(current_yaw+ucd[0][1]*pi/180),self.default_speed,current_time+ucd[1][-1,4])
                 s1_key=self.state2key(s1_state)
                 if not s1_key in self.closelist:
-                    s1=Node(s1_state,s1_key)
-                    g, Ps=self.cost_to_come(sc,s1,ucd[1][-1,5])
+
+                    g, Ps=cost_to_come(sc.state,s1_state,ucd[1],sc.ps,sc.g,self.map.map,self.map.offset,self.map.resolution,self.resolution_time,self.tmax,self.dmax)
                     if Ps<0.2:
                         continue
-                    h=self.cost_to_go(s1,sG)
-                    s1.g=g
-                    s1.ps=Ps
-                    s1.cost=g+self.e*h
-                    s1.father=sc
-                    # print(g, h,g+self.e*h,s1_state, Ps)
+                    h=self.cost_to_go(s1_state,sG)
+                    s1 = Node(s1_state, s1_key,g,g+self.e*h,Ps,sc)
                     if s1 in self.openlist:
                         if s1.cost < self.openlist._heap[self.openlist._idx[s1.key]].cost:
                             # test_dic.setdefault(s1_key, [self.openlist._heap[self.openlist._idx[s1_key]].state[2:]]).append(s1_state[2:])
@@ -190,13 +182,12 @@ class DeliberativePlanner:
                 fig.add_patch(patches.Arrow(sc.key[1], sc.key[0],0.5*sin(current_yaw),0.5*cos(current_yaw), width=0.5))
                 if self.do_tra is not None:
                     for key in self.do_tra:
-                        if int(sc.state[4])+10<self.do_tra[key].shape[0]:
-                            do_y,do_x,do_yaw=self.do_tra[key][int(sc.state[4]),1],self.do_tra[key][int(sc.state[4]),0],self.do_tra[key][int(sc.state[4]),2]
-                            do_y_next, do_x_next = self.do_tra[key][int(sc.state[4])+10, 1], self.do_tra[key][int(sc.state[4])+10, 0]
-                            plot_lines.append(fig.plot(do_y,do_x,"or",markersize=5))
-                            plot_lines.append(fig.plot([do_y,do_y_next],[do_x,do_x_next],'--r'))
-                            if key in self.collision_risk_ob:
-                                plot_patches.append(plot_colrges_cost_range(do_x,do_y,do_yaw,self.collision_risk_ob[key][0],fig))
+                        do_y,do_x,do_yaw=self.do_tra[key][int(sc.state[4]),1],self.do_tra[key][int(sc.state[4]),0],self.do_tra[key][int(sc.state[4]),2]
+                        do_y_next, do_x_next = self.do_tra[key][int(sc.state[4])+10, 1], self.do_tra[key][int(sc.state[4])+10, 0]
+                        plot_lines.append(fig.plot(do_y,do_x,"or",markersize=5))
+                        plot_lines.append(fig.plot([do_y,do_y_next],[do_x,do_x_next],'--r'))
+                        if key in self.collision_risk_ob:
+                            plot_patches.append(plot_colrges_cost_range(do_x,do_y,do_yaw,self.collision_risk_ob[key][0],fig))
                         # plot_lines.append(plot_circle((do_y,do_x),sc.state[4]*self.C_std,fig))
                 # if sc.father is not None:
                 #     fig.plot([sc.state[1],sc.father.state[1]],[sc.state[0],sc.father.state[0]],"--b")
@@ -207,49 +198,11 @@ class DeliberativePlanner:
         x,y,yaw,u,t=s_state
         return (int(round(x/self.resolution_pos)*self.resolution_pos),int(round(y/self.resolution_pos)*self.resolution_pos))
 
-    def cost_to_come(self,s,s1,distance):
-        Pcs,colrges_break=self.evaluate_primitive(s,s1)
-        # print(colrges_break)
-        # colrges_break=0
-        Ps=s.ps
-        Cs=self.Wn*(self.Wc*(s1.state[4]-s.state[4])/self.tmax+(1.0-self.Wc)*distance/self.dmax+colrges_break)
-        g=s.g+Ps/self.Cg_max*((1.0-Pcs)*Cs+Pcs*self.Ce)
-        return g,Ps*(1-Pcs)
 
-    # def get_pcs(self,pos_primitive,t):
-    #     Pcsu=0.0
-    #     for pos in pos_primitive:
-    #         t+=self.resolution_time
-    #         p=self.collision_with_static_ob(pos)
-    #         if p==1.0:
-    #             return 1.0
-    #         Pcsu=max(self.collision_with_dynamic_ob(pos,t),Pcsu)
-    #     # Pcs=exp(-self.gamma*s1.state[4])*Pcsu
-    #     return Pcsu
-
-    def evaluate_primitive(self,s,s1):
-        primitives = self.compute_trajectory(s.state, s1.state)
-        t=int(s.state[4])
-        colrges_break=0.0
-        no_Pcsu=1.0
-        for primitive in primitives:
-            t+=self.resolution_time
-            p=self.collision_with_static_ob(primitive[0:2])
-            if p==1.0:
-                return 1.0,0.0
-            for key in self.collision_risk_ob:
-                colrges_break+=self.colrges_cost(primitive,self.do_tra[key][t],key)
-            no_Pcsu_t=1.0
-            for key in self.local_range_ob:
-                distance=np.sqrt(np.inner(self.do_tra[key][t,0:2]-primitive[0:2],self.do_tra[key][t,0:2]-primitive[0:2]))
-                no_Pcsu_t*=(1-min(max(0.13*(10-distance),0),1))
-            no_Pcsu=min(no_Pcsu,no_Pcsu_t)
-        return 1-no_Pcsu,colrges_break/primitives.shape[0]
-
-    def cost_to_go(self,s1,sG):
-        d=np.sqrt((s1.state[0]-sG[0])**2+(s1.state[1]-sG[1])**2)
+    def cost_to_go(self,s1_state,sG_state):
+        d=np.sqrt((s1_state[0]-sG_state[0])**2+(s1_state[1]-sG_state[1])**2)
         t=d/self.default_speed
-        return self.Wc*(t/self.tmax)+(1.0-self.Wc)*d/self.dmax
+        return Wc*(t/self.tmax)+(1.0-Wc)*d/self.dmax
 
     def generate_total_trajectory(self,s):
         trajectory=[]
@@ -287,10 +240,6 @@ class DeliberativePlanner:
                     j+=1
                 else:
                     trajectory.append(states[i])
-                    dY,dX=states[j-1][1]-states[i][1],states[j-1][0]-states[i][0]
-                    head=np.arctan2(dY,dX)
-                    for ik in range(self.resolution_time,np.int(states[j-1][4]),self.resolution_time):
-                        trajectory.append([states[i][0]+dX*ik/(states[j-1][4]-states[i][4]),states[i][1]+dY*ik/(states[j-1][4]-states[i][4]),head,states[i][3],states[i][4]+ik])
                     trajectory.append(states[j-1])
                     i=j-1
         trajectory.append(states[i])
@@ -301,16 +250,8 @@ class DeliberativePlanner:
 
 
 
-    # def compute_trajectory(self,s_truepos,s_u_yaw,s1_u_yaw):
-    #     ucd=self.control_primitives[s_u_yaw[0]][(s1_u_yaw[0],"{:.2f}".format(yawRange(s1_u_yaw[1]-s_u_yaw[1])))]
-    #     yaw=s_u_yaw[1]
-    #     pos_all=[]
-    #     pos0 = np.array(s_truepos)
-    #     for i in range(self.resolution_time-1,ucd.shape[0],self.resolution_time):
-    #         pos_all.append(pos0+[ucd[i,0]*cos(yaw)-ucd[i,1]*sin(yaw),ucd[i,0]*sin(yaw)+ucd[i,1]*cos(yaw)])
-    #     return pos_all
-
     def compute_trajectory(self,s_state,s1_state):
+        # ucd=self.control_primitives[s_state[3]][(int(s1_state[4]-s_state[4]),"{:.2f}".format(yawRange(s1_state[2]-s_state[2])))]
         ucd = self.control_primitives[s_state[3]][
             (int(s1_state[4] - s_state[4]), np.int(np.round(180/pi*yawRange(s1_state[2] - s_state[2]))))]
         yaw=s_state[2]
@@ -318,13 +259,6 @@ class DeliberativePlanner:
         for i in range(self.resolution_time-1,ucd.shape[0],self.resolution_time):
             state_all.append([s_state[0]+ucd[i,0]*cos(yaw)-ucd[i,1]*sin(yaw),s_state[1]+ucd[i,0]*sin(yaw)+ucd[i,1]*cos(yaw),yawRange(yaw+ucd[i,2]),ucd[i,3],s_state[4]+ucd[i,4]])
         return np.array(state_all)
-
-    def collision_with_static_ob(self,pos):
-        pos_key = (int(round((pos[1] - self.map.offset[0])/self.map.resolution)), int(round((pos[0] - self.map.offset[1])/self.map.resolution)))
-        if pos_key[0] < 0 or pos_key[0] >= self.map.size[1] or pos_key[1] < 0 or pos_key[1] >= self.map.size[0] or self.map.map[
-            pos_key[0], pos_key[1]] == 1:
-            return 1.0
-        return 0.0
 
 
     def collision_with_dynamic_ob(self,pos,t):
@@ -354,7 +288,7 @@ class DeliberativePlanner:
         pos=np.array(sc.state[:2])
         yaw,u,t=sc.state[2:]
         t=int(t)
-        self.local_range_ob=[key for key,value in self.do_tra.items() if t<value.shape[0]-10 and np.inner(value[t][0:2]-pos,value[t][0:2]-pos)<self.local_radius**2]
+        self.local_range_ob=[key for key,value in self.do_tra.items() if t<value.shape[0] and np.inner(value[t][0:2]-pos,value[t][0:2]-pos)<self.local_radius**2]
         # self.collision_risk_ob=dict()
         for key in self.local_range_ob:
             tcpa,dcpa=get_cpa(self.do_tra[key][t],sc.state)
@@ -384,33 +318,11 @@ class DeliberativePlanner:
 
 
 
-class IntentionModel:
-    def __init__(self):
-        self.obs_info=[]
-
-    def add_obs(self,info):
-        self.obs_info.append(info)
-
-    def forward(self,s_usv,obs):
-        obs_new=dict()
-        for ob in obs:
-            s0=obs[ob]
-            yaw,u=s0[2],s0[3]
-            obs_new[ob]=s0+[u*cos(yaw),u*sin(yaw),0,0,s_usv[4]+1]
-        return obs_new
+def load_control_primitives(file_path):
+    print("load control primitives from {}".format(file_path))
+    return np.load(file_path).item()
 
 
-def load_control_primitives():
-    print("load control primitives from {}".format(os.curdir))
-    return np.load('control_primitives.npy').item()
-
-
-def yawRange(x):
-    if x > pi:
-        x = x - 2 * pi
-    elif x < -pi:
-        x = x + 2 * pi
-    return x
 
 def plot_circle(c,r,fig):
     theta = np.linspace(0, 2 * np.pi, 800)
@@ -455,6 +367,66 @@ def colrges_encounter_type(s_usv,s_ob):
         encounter_type=None
     return encounter_type
 
+# @jit(nopython=True)
+# def extend_new_node_jit(s_state,keys,ucd,s_ps,s_g):
+#     gs=np.zeros(len(keys))
+#     Pss = np.zeros(len(keys))
+#     s1_states=[]
+#     for i in prange(len(keys)):
+#         s1_state=(s_state[0]+ucd[i,keys[i,0]-1, 0] * cos(s_state[2]) - ucd[i,keys[i,0]-1, 1] * sin(s_state[2]),
+#                   s_state[1]+ucd[i,keys[i,0]-1, 0] * sin(s_state[2]) + ucd[i,keys[i,0]-1, 1] * cos(s_state[2]),
+#                   yawRange(s_state[2]+np.round(keys[i,1]/15)*15*pi/180), s_state[3], s_state[4] + ucd[i,keys[i,0]-1, 4])
+#         g, Ps = cost_to_come(s_state, s1_state, ucd[i],s_ps,s_g)
+#         gs[i]=g
+#         Pss[i]=Ps
+#         s1_states.append(s1_state)
+#     return gs,Pss,s1_states
+
+@jit(nopython=True)
+def cost_to_come(s_state,s1_state,ucd,s_ps,s_g,MAP,map_offset,map_resolution,resolution_time,tmax,dmax):
+    Pcs,colrges_break=evaluate_primitive(s_state,ucd,MAP,map_offset,map_resolution,resolution_time)
+    # print(colrges_break)
+    # colrges_break=0
+    Cs=Wn*(Wc*(s1_state[4]-s_state[4])/tmax+(1.0-Wc)*ucd[-1,5]/dmax+colrges_break/10)
+    g=s_g+s_ps/Cg_max*((1.0-Pcs)*Cs+Pcs*Ce)
+    return g,s_ps*(1-Pcs)
+
+@jit(nopython=True)
+def evaluate_primitive(s_state,ucd,MAP,map_offset,map_resolution,resolution_time):
+    primitives = compute_trajectory(s_state, ucd,resolution_time)
+    t=np.int(s_state[4])
+    colrges_break=0.0
+    no_Pcsu=1.0
+    for i in range(primitives.shape[0]):
+        t+=resolution_time
+        p=collision_with_static_ob(primitives[i,0:2],MAP,map_offset,map_resolution)
+        if p==1.0:
+            return 1.0,0.0
+    return 1-no_Pcsu,colrges_break/primitives.shape[0]
+
+@jit(nopython=True)
+def compute_trajectory(s_state,ucd,resolution_time):
+    yaw=s_state[2]
+    state_all=[]
+    for i in range(resolution_time-1,ucd.shape[0],resolution_time):
+        state_all.append([s_state[0]+ucd[i,0]*cos(yaw)-ucd[i,1]*sin(yaw),s_state[1]+ucd[i,0]*sin(yaw)+ucd[i,1]*cos(yaw),yawRange(yaw+ucd[i,2]),ucd[i,3],s_state[4]+ucd[i,4]])
+    return np.array(state_all)
+
+@jit(nopython=True)
+def yawRange(x):
+    if x > pi:
+        x = x - 2 * pi
+    elif x < -pi:
+        x = x + 2 * pi
+    return x
+
+@jit(nopython=True)
+def collision_with_static_ob(pos,MAP,map_offset,map_resolution):
+    pos_key = (np.int(np.round((pos[1] - map_offset[0])/map_resolution)), np.int(np.round((pos[0] - map_offset[1])/map_resolution)))
+    if pos_key[0] < 0 or pos_key[0] >= MAP.shape[1] or pos_key[1] < 0 or pos_key[1] >= MAP.shape[0] or MAP[
+        pos_key[0], pos_key[1]] == 1:
+        return 1.0
+    return 0.0
 
 
 def test_head_on():
@@ -467,7 +439,7 @@ def test_head_on():
     fig.set_xlabel('E/m')
     fig.set_ylabel('N/m')
     s0=tuple(np.array((5,5,pi/4,0.8,0),dtype=np.float64))
-    sG=tuple(np.array((78,100,-3*pi/4,0.8,0),dtype=np.float64))
+    sG=tuple(np.array((80,80,pi,0.8,0),dtype=np.float64))
     fig.plot(sG[1], sG[0], "ob", markersize=5)
 
     #静态障碍物
@@ -483,27 +455,25 @@ def test_head_on():
         rect = patches.Rectangle((ob[0], ob[1]), ob[2], ob[3], color='y')
         fig.add_patch(rect)
 
-    dp = DeliberativePlanner(map, 1, 125, 100, 1, 0.8)
     #动态障碍物
-    # do_tra={"do1":np.array(dp.start(sG, s0))}
+    do_tra={"do1":generate_do_trajectory(95,100,-3*pi/4,0.70,200)}
 
 
-
+    dp=DeliberativePlanner(map,1,125,100,1,0.8)
     start_time=time.time()
-    # dp.set_dynamic_obstacle(do_tra)
+    dp.set_dynamic_obstacle(do_tra)
     tra=np.array(dp.start(s0,sG,fig))
     print("runtime is {},closelist node number is {}".format(time.time() - start_time, len(dp.closelist)))
 
     fig.plot(tra[:,1],tra[:,0],"r")
     for i in range(tra.shape[0]):
-        if tra[i, 3] == 0.8:
+        if i%10==0:
             fig.plot(tra[i,1],tra[i,0],"or",markersize=2)
 
     # a = np.array(list(dp.closelist), dtype=np.float64)
     # fig.plot(a[:,1],a[:,0],'ob',markersize=1)
 
     plt.show()
-    return tra
 
 def test_cross():
     #地图、起点、目标
@@ -552,99 +522,113 @@ def test_cross():
     plt.show()
 
 def test_static():
-    # 地图、起点、目标
+    #参数
+    resolution_time = 1
+    resolution_pos = 1
+    default_speed=0.8
+    primitive_file_path='control_primitives.npy'
+    e = 1
+
+    # 起点、目标、地图
+    s0 = tuple(np.array((5, 5, 0, 0.8, 0), dtype=np.float64))
+    sG = tuple(np.array((280, 280, pi, 0.8, 0), dtype=np.float64))
     map_size = (300, 300)
     map = Map()
     map.new_map(map_size, resolution=1)
-    fig = plt.gca()
-    fig.axis([0, map_size[0], 0, map_size[1]])
-    fig.set_xlabel('E/m')
-    fig.set_ylabel('N/m')
-    s0 = tuple(np.array((50, 100, 0, 0.8, 0), dtype=np.float64))
-    sG = tuple(np.array((280, 280, -pi, 0.8, 0), dtype=np.float64))
-    fig.plot(sG[1], sG[0], "ob", markersize=5)
 
     # 静态障碍物
     # rectangle_static_obstacles = ((10, 50, 50, 10), (50, 10, 10, 40))
     # rectangle_static_obstacles = ((0, 50, 60, 10), (50, 0, 10, 48))
     # rectangle_static_obstacles = ((0, 20, 80, 10), (20, 50, 80, 10))
     # rectangle_static_obstacles = ((40, 30, 60, 10), (20, 60, 20, 20))
-    rectangle_static_obstacles=((40,75,70,50),(150,75,100,50),(175,175,60,60))
+    rectangle_static_obstacles = ((40, 75, 70, 50), (150, 75, 100, 50), (175, 175, 60, 60))
     # rectangle_static_obstacles = ()
-
     for ob in rectangle_static_obstacles:
         map.add_static_obstacle(type="rectangle", config=ob)
+
+    # 动态障碍物
+    # do_tra = {"do1": generate_do_trajectory(10, 95, -0.7, 0.7, 200)}
+
+    #作图
+    fig = plt.gca()
+    fig.axis([0, map_size[0], 0, map_size[1]])
+    fig.set_xlabel('E/m')
+    fig.set_ylabel('N/m')
+    fig.plot(sG[1], sG[0], "ob", markersize=5)
+    for ob in rectangle_static_obstacles:
         rect = patches.Rectangle((ob[0], ob[1]), ob[2], ob[3], color='y')
         fig.add_patch(rect)
 
-    dp = DeliberativePlanner(map, 1, 125, 100, 1, 0.8,1.5)
-    # 动态障碍物
-    do_tra = {"do1": np.array(dp.start(sG, s0))}
 
 
+    dp = DeliberativePlanner(map,resolution_pos,resolution_time,default_speed,primitive_file_path,e)
     start_time = time.time()
-    dp.set_dynamic_obstacle(do_tra)
-    tra = np.array(dp.start(s0, sG,fig))
+    # dp.set_dynamic_obstacle(do_tra)
+    tra = np.array(dp.start(s0, sG))
     print("runtime is {},closelist node number is {},trajectory total time is {}".format(time.time() - start_time,len(dp.closelist),tra[-1, -1]))
+
     fig.plot(tra[:, 1], tra[:, 0], "r")
     for i in range(tra.shape[0]):
         if tra[i,3]==0.8:
             fig.plot(tra[i, 1], tra[i, 0], "or", markersize=2)
-
     # a = np.array(list(dp.closelist), dtype=np.float64)
     # fig.plot(a[:,1],a[:,0],'ob',markersize=1)
-
     plt.show()
     return tra
 
+def test_qingdao():
+    #参数
+    resolution_time = 10
+    resolution_pos = 50
+    default_speed=4.114
+    primitive_file_path='control_primitives.npy'
+    e = 1.5
+
+    # 起点、目标、地图
+    s0 = tuple(np.array([13031, -7037, np.pi / 3, 0, 0], dtype=np.float64))
+    sG = tuple(np.array((-2975, 3964, 0, 0, 0), dtype=np.float64))
+    map=Map()
+    with open("./case1/map_data1.json",'r') as f:
+        print("loading map")
+        map.load_map(np.array(json.load(f)),2,(-17000,-17000))
+
+
+    es=[1]
+    for e in es:
+        dp = DeliberativePlanner(map,resolution_pos,resolution_time,default_speed,primitive_file_path,e)
+        start_time = time.time()
+        tra = np.array(dp.start(s0, sG))
+        print("runtime is {},closelist node number is {},trajectory total time is {}".format(time.time() - start_time,
+                                                                                             len(dp.closelist),
+                                                                                             tra[-1, -1]))
+    fig = plt.gca()
+    extend = [map.offset[0], map.size[0] * map.resolution + map.offset[0], map.offset[1],
+              map.size[1] * map.resolution + map.offset[1]]
+    fig.set_xlabel('E/m')
+    fig.set_ylabel('N/m')
+    mapplot=map.map.copy()
+    for i in range(mapplot.shape[0]):
+        mapplot[i, :] = mapplot[i, :][::-1]
+    fig.imshow(mapplot.T, extent=extend)
+    fig.plot(s0[1], s0[0], 'ob', markersize=2)
+    fig.plot(sG[1], sG[0], 'ob', markersize=2)
+    fig.plot(tra[:,1],tra[:,0],"r")
+    # for i in range(tra.shape[0]):
+    #     if not np.isnan(tra[i,4]):
+    #         fig.plot(tra[i,1],tra[i,0],"or",markersize=2)
+
+    plt.show()
 
 if __name__=="__main__":
-    # #地图、起点、目标
-    # map_size = (300, 300)
-    # map = Map()
-    # map.new_map(map_size,resolution=1)
-    # fig = plt.gca()
-    # fig.axis([0, map_size[0], 0, map_size[1]])
-    # fig.set_xlabel('E/m')
-    # fig.set_ylabel('N/m')
-    # s0=tuple(np.array((50,50,0,0.8,0),dtype=np.float64))
-    # sG=tuple(np.array((250,250,pi,0.8,0),dtype=np.float64))
-    # fig.plot(sG[1], sG[0], "ob", markersize=5)
-    #
-    # #静态障碍物
-    # # rectangle_static_obstacles = ((10, 50, 50, 10), (50, 10, 10, 40))
-    # # rectangle_static_obstacles = ((0, 20, 80, 10), (20, 50, 80, 10))
-    # # rectangle_static_obstacles = ((40, 30, 60, 10), (20, 60, 20, 20))
-    # rectangle_static_obstacles=((40,75,70,50),(150,75,100,50),(175,175,60,60))
-    #
-    #
-    # for ob in rectangle_static_obstacles:
-    #     map.add_static_obstacle(type="rectangle", config=ob)
-    #     rect = patches.Rectangle((ob[0]+3, ob[1]+3), ob[2]-6, ob[3]-6, color='y')
-    #     fig.add_patch(rect)
-    #
-    # #动态障碍物
-    # # do_tra={"do1":generate_do_trajectory(50,100,-pi/2,0.70,200)}
-    #
-    #
-    # dp=DeliberativePlanner(map,1,500,400,1,0.8)
-    # start_time=time.time()
-    # dp.set_dynamic_obstacle(dict())
-    # tra=np.array(dp.start(s0,sG))
-    # print("runtime is {}".format(time.time()-start_time))
-    #
-    # fig.plot(tra[:,1],tra[:,0],"r")
-    # for i in range(tra.shape[0]):
-    #     if i%10==0:
-    #         fig.plot(tra[i,1],tra[i,0],"or",markersize=2)
-    #
-    # # a = np.array(list(dp.closelist), dtype=np.float64)
-    # # fig.plot(a[:,1],a[:,0],'ob',markersize=1)
-    #
-    # plt.show()
-    # test_cross()
-    tra=test_head_on()
-    # tra=test_static()
 
+    # test_cross()
+    # test_head_on()
+    tra=test_static()
+    # test_qingdao()
+    # control_primitives=load_control_primitives('control_primitives.npy')
+    # s_state=np.array([1,1,0,0.8,0])
+    # keys=np.array([itm for itm in control_primitives[0.8].keys()],dtype=np.int)
+    # values=np.array([itm for itm in control_primitives[0.8].values()])
+    # gs, Pss, s1_states=extend_new_node_jit(s_state,keys,values,1,0)
 
 
