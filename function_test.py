@@ -12,27 +12,51 @@ DCPA_MIN=10
 COLREGS_COST=1.0
 a=np.array([np.array([[1,2],[2,3]]),np.array([[10,2],[2,3]])])
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def collision_pro_montecarlo(pos_usv,pos_ob,sigma,radius,sample_num,plot_show=False):
     # s=np.random.multivariate_normal(pos_ob,cov,sample_num)
-    s=np.vstack((np.random.normal(pos_ob[0],sigma[0],sample_num),np.random.normal(pos_ob[0],sigma[1],sample_num))).T
+    s=np.vstack((np.random.normal(pos_ob[0],sigma[0],sample_num),np.random.normal(pos_ob[1],sigma[1],sample_num))).T
     distance=(s[:,0]-pos_usv[0])**2+(s[:,1]-pos_usv[1])**2
     p=np.sum(distance<radius**2)/sample_num
-    # if plot_show:
-    #     fig = plt.figure().gca()
-    #     fig.plot(s[:, 1], s[:, 0], 'ob', markersize=1)
-    #     fig.plot(pos_usv[1], pos_usv[0], 'or', markersize=5)
-    #     theta = np.linspace(0, 2 * np.pi, 800)
-    #     y, x = np.cos(theta) * radius + pos_usv[0], np.sin(theta) * radius + pos_usv[1]
-    #     fig.plot(y, x, "--r")
-    #     plt.show()
+    if plot_show:
+        fig = plt.figure().gca()
+        fig.plot(s[:, 1], s[:, 0], 'ob', markersize=1)
+        fig.plot(pos_usv[1], pos_usv[0], 'or', markersize=5)
+        theta = np.linspace(0, 2 * np.pi, 800)
+        y, x = np.cos(theta) * radius + pos_usv[0], np.sin(theta) * radius + pos_usv[1]
+        fig.plot(y, x, "--r")
+        plt.show()
     return p
 
 
-def collision_pro_cal(pos_usv,pos_ob,cov,radius):
-    stdx,stdy=cov[0][0],cov[1][1]
-    p = 1 / (2 * pi * stdx * stdy) * exp(-1 / 2 * (((pos_usv[0]-pos_ob[0]) / stdx) ** 2 + ((pos_usv[1]-pos_ob[1]) / stdy) ** 2)) * pi*radius**2
-    return p
+# @jit(nopython=True)
+# def collision_pro_cal(d,sigma,r):
+#     x=np.arange(d-r,d+r,r/5)
+#     return np.sum(1 / (2 * pi * sigma**2) * exp(-1 / 2 * x**2/sigma**2)*2*np.arccos((x**2+d**2-r**2)/2/x/d)*x*r/5)
+
+
+
+
+@jit(nopython=True)
+def collision_pro_cal(d,sigma2,r):
+    if d==0:
+        step=r/10
+        x1=np.arange(0,r,step)
+        return np.sum(1 / (2 * pi * sigma2) * exp(-1 / 2 * x1 ** 2 / sigma2)*2*pi*x1*step)
+    elif d>=r:
+        step=(2*r)/10
+        x=np.arange(d+r-0.1,d-r,-step)
+        costheta=(x ** 2 + d ** 2 - r ** 2) / 2 / x / d
+        a=np.where((x ** 2 + d ** 2 - r ** 2) / 2 / x / d > 1.0)[0]
+        return np.sum(np.arccos((x ** 2 + d ** 2 - r ** 2) / 2 / x / d)*2*x*step / (2 * pi * sigma2) * exp(-1 / 2 * x ** 2 / sigma2))
+    else:
+        step = (2*d - 0.1) / 10
+        step1=(r-d)/10
+        x=np.arange(d+r-0.1,r-d,-step)
+        x1=np.arange(0,r-d,step1)
+        s=np.sum(np.arccos((x ** 2 + d ** 2 - r ** 2) / 2 / x / d)*2*x*step / (2 * pi * sigma2) * exp(-1 / 2 * x ** 2 / sigma2))
+        s1=np.sum(1 / (2 * pi * sigma2) * exp(-1 / 2 * x1 ** 2 / sigma2)*2*pi*x1*step1)
+        return s+s1
 
 
 def test_montecarlo():
@@ -44,25 +68,23 @@ def test_montecarlo():
     fig.plot(sample_nums,p)
     plt.show()
 
-@jit(nopython=True,parallel=True)
 def compare(n):
-    # start_time=time.time()
-    a=np.zeros(n)
-    for i in prange(n):
-        a[i] = collision_pro_montecarlo(pos_usv, pos_ob, sigma, radius, 800, plot_show=False)
-        # a+=1
-    # print(time.time()-start_time)
+    collision_pro_montecarlo(pos_usv, pos_ob, sigma, radius, 800, plot_show=False)
+    d = np.sqrt(np.inner(pos_usv - pos_ob, pos_usv - pos_ob))
+    collision_pro_cal1(d, sigma[0], radius)
 
-    # start_time1=time.time()
-    # for i in prange(n):
-    #     p1 = collision_pro_montecarlo(pos_usv, pos_ob, sigma, radius, 800, plot_show=False)
-    # print(time.time()-start_time)
-    # end_time=time.time()
-    # start_time=time.time()
-    # for i in range(10000):
-    #     p2 = collision_pro_cal(pos_usv, pos_ob, sigma, radius)
-    # print(time.time()-start_time)
-    return a
+    start_time=time.time()
+    a=np.zeros(n)
+    for i in range(n):
+        a[i] = collision_pro_montecarlo(pos_usv, pos_ob, sigma, radius, 800, plot_show=False)
+    print(time.time()-start_time)
+
+    start_time = time.time()
+    a=np.zeros(n)
+    for i in range(n):
+        d = np.sqrt(np.inner(pos_usv - pos_ob, pos_usv - pos_ob))
+        a[i] = collision_pro_cal1(d, sigma[0], radius)
+    print(time.time()-start_time)
 
 
 def plot_test():
@@ -197,30 +219,68 @@ def forxunhuan(n):
 
 @jit(nopython=True)
 def normal_dis(n):
-    for i in range(n):
-        s = np.sum(a[0][0,:])
+    a=np.zeros((3,3))
+    s=0
+    for i,value in zip(a[:,0],a[:,1]):
+        s +=np.arctan2(value,i)
     return s
 
 
-if __name__=="__main__":
-    # test()
-    std=5
-    pos_usv=(3,3)
-    pos_ob=(10,10)
-    sigma=(std,std)
-    radius=4
-    N=700
-    n=10
+@jit(nopython=True)
+def yawRange(x):
+    if x > pi:
+        x = x - 2 * pi
+    elif x < -pi:
+        x = x + 2 * pi
+    return x
 
+@jit(nopython=True)
+def colrges_cost(s_usv,s_ob,encounter_type):
+    alpha_b=yawRange(np.arctan2(s_usv[1]-s_ob[1],s_usv[0]-s_ob[0])-s_ob[2])
+    distance=np.sqrt(np.dot(s_usv[0:2]-s_ob[0:2],s_usv[0:2]-s_ob[0:2]))
+    if encounter_type==4 and alpha_b>-pi/24 and alpha_b<pi/2 and distance<30:
+        return 1.0
+    elif encounter_type==3 and alpha_b>-pi/4 and alpha_b<pi/8 and distance<30:
+        return 1.0
+    else:
+        return 0.0
+
+if __name__=="__main__":
+    s_usv=np.array([1,1])
+    s_ob=np.array([10,10,-3*pi/4])
+    c=colrges_cost(s_usv,s_ob,4)
+    std=5
+    pos_usv=np.array((0,0))
+    pos_ob=np.array((0,10))
+    sigma=(std,std)
+    radius=8
+    N=2400
+    n=60000
+    # compare(n)
+
+    p1=collision_pro_montecarlo(pos_usv, pos_ob, sigma, radius, 8000, plot_show=True)
+    d = np.sqrt(np.inner(pos_usv - pos_ob, pos_usv - pos_ob))
+    p2=collision_pro_cal(d,std**2,radius)
+    print(p1,p2)
+
+    ts=np.arange(300)
+    plt.figure(2)
+    plt.plot(ts,np.exp(-0.01*ts))
+    # stds=range(1,20)
+    # p=[]
+    # for std in stds:
+    #     p.append(collision_pro_cal(d,std**2,radius))
+    # plt.plot(stds,p)
+    # f(np.array([1,2,3]),5,4,7)
     # start_time=time.time()
     # a=compare(n)
     # print(time.time()-start_time)
-    #
+    # #
     # start_time=time.time()
     # for i in range(N):
     #     a=compare(n)
     # print(time.time()-start_time)
-    s=normal_dis(3)
+    # s=normal_dis(3)
 
     # start_time = time.time()
     # a=np.zeros(n)

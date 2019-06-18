@@ -11,7 +11,10 @@ import matplotlib.pyplot as plt
 
 
 YAW={'0.79':pi/4,'0.52':pi/6,'0.26':pi/12,'-0.79':-pi/4,'-0.52':-pi/6,'-0.26':-pi/12,'0.00':0,'1.05':pi/3,'-1.05':-pi/3,'0.17':pi/18,'-0.17':-pi/18,'1.57':pi/2,'-1.57':-pi/2}
-Wn,Wc,Cg_max,Ce=1000,0.5,1000,1000
+Wn,Wc,Cg_max,Ce=1000,0.5,1000,500
+gamma = 0.01
+C_sigma = 0.25
+#{'None':0,'head on':4,'cross from right':3,'cross from left':1,'take over':2}
 
 
 
@@ -24,7 +27,7 @@ class Node():
         self.ps=ps
         self.g=g
         self.father=father
-        self.encounter_type=dict()
+        self.encounter_type=np.zeros((0,3),dtype=np.int)
 
 
 
@@ -107,12 +110,12 @@ class DeliberativePlanner:
         self.gamma=0.1
         self.C_std=0.1
         self.control_primitives=load_control_primitives(primitive_file_path)
-        self.do_tra=None
+        self.do_tra=np.zeros((0,0,6))
         self.local_radius=80
-        self.tcpa_min=40
-        self.dcpa_min=8
-        self.collision_risk_ob=dict()
-        self.local_range_ob=[]
+        self.tcpa_min=50
+        self.dcpa_min=20
+        self.collision_risk_ob=np.zeros((0,3),dtype=np.int)
+        # self.local_range_ob=[]
 
     def set_dynamic_obstacle(self,do_tra,do_config=None):
         self.do_config=do_config
@@ -134,9 +137,9 @@ class DeliberativePlanner:
             current_pos = np.array(sc.state[0:2])
             current_time=sc.state[4]
             current_speed=sc.state[3]
-            if self.do_tra:
+            if self.do_tra.shape[0]>0:
                 self.evaluate_encounter(sc)
-            # print(self.collision_risk_ob)
+            print(self.collision_risk_ob)
             evaluate_node+=1
 
             for ucd in self.control_primitives[current_speed].items():
@@ -146,8 +149,9 @@ class DeliberativePlanner:
                 s1_state=(pos[0],pos[1],yawRange(current_yaw+ucd[0][1]*pi/180),self.default_speed,current_time+ucd[1][-1,4])
                 s1_key=self.state2key(s1_state)
                 if not s1_key in self.closelist:
-
-                    g, Ps=cost_to_come(sc.state,s1_state,ucd[1],sc.ps,sc.g,self.map.map,self.map.offset,self.map.resolution,self.resolution_time,self.tmax,self.dmax)
+                    g, Ps=cost_to_come(sc.state,s1_state,ucd[1],sc.ps,sc.g,self.map.map,self.map.offset,self.map.resolution,
+                                       self.resolution_time,self.tmax,self.dmax,self.do_tra,self.collision_risk_ob)
+                    # print('cost to come',g)
                     if Ps<0.2:
                         continue
                     h=self.cost_to_go(s1_state,sG)
@@ -181,14 +185,17 @@ class DeliberativePlanner:
                 fig.plot(sc.key[1], sc.key[0], "ob", markersize=1)
                 fig.add_patch(patches.Arrow(sc.key[1], sc.key[0],0.5*sin(current_yaw),0.5*cos(current_yaw), width=0.5))
                 if self.do_tra is not None:
-                    for key in self.do_tra:
-                        do_y,do_x,do_yaw=self.do_tra[key][int(sc.state[4]),1],self.do_tra[key][int(sc.state[4]),0],self.do_tra[key][int(sc.state[4]),2]
-                        do_y_next, do_x_next = self.do_tra[key][int(sc.state[4])+10, 1], self.do_tra[key][int(sc.state[4])+10, 0]
+                    for id in range(self.do_tra.shape[0]):
+                        do_y,do_x,do_yaw=self.do_tra[id,int(sc.state[4]),1],self.do_tra[id,int(sc.state[4]),0],self.do_tra[id,int(sc.state[4]),2]
                         plot_lines.append(fig.plot(do_y,do_x,"or",markersize=5))
-                        plot_lines.append(fig.plot([do_y,do_y_next],[do_x,do_x_next],'--r'))
-                        if key in self.collision_risk_ob:
-                            plot_patches.append(plot_colrges_cost_range(do_x,do_y,do_yaw,self.collision_risk_ob[key][0],fig))
-                        # plot_lines.append(plot_circle((do_y,do_x),sc.state[4]*self.C_std,fig))
+                        if int(sc.state[4]) + 10 < self.do_tra.shape[1]:
+                            do_y_next, do_x_next = self.do_tra[id,int(sc.state[4])+10, 1], self.do_tra[id,int(sc.state[4])+10, 0]
+                            plot_lines.append(fig.plot([do_y,do_y_next],[do_x,do_x_next],'--r'))
+                        i = np.where(self.collision_risk_ob[:, 0] == id)[0]
+                        if len(i) > 0:
+                            i = i[0]
+                            plot_patches.append(plot_colrges_cost_range(do_x,do_y,do_yaw,self.collision_risk_ob[i,1],fig))
+                        plot_lines.append(plot_circle((do_y, do_x), np.sqrt(sc.state[4] * C_sigma), fig))
                 # if sc.father is not None:
                 #     fig.plot([sc.state[1],sc.father.state[1]],[sc.state[0],sc.father.state[0]],"--b")
                 plt.pause(0.0001)
@@ -261,59 +268,29 @@ class DeliberativePlanner:
         return np.array(state_all)
 
 
-    def collision_with_dynamic_ob(self,pos,t):
-        no_pcsu=1.0
-        t=int(t)
-        if self.do_tra is not None:
-            for key in self.do_tra:
-                if t>=self.do_tra[key].shape[0]:
-                    continue
-                d_pos=pos-self.do_tra[key][int(t),0:2]
-                stdx,stdy=t*self.C_std,t*self.C_std
-                if np.inner(d_pos,d_pos)<3**2:
-                    return 1.0
-                p=1/(2*pi*stdx*stdy)*exp(-1/2*((d_pos[0]/stdx)**2+(d_pos[1]/stdy)**2))*40
-                no_pcsu*=1-p
-        return 1-no_pcsu
 
     def evaluate_encounter(self,sc):
-        if sc.father is not None:
-            self.collision_risk_ob = copy.deepcopy(sc.father.encounter_type)
-        for key in list(self.collision_risk_ob.keys()):
-            if self.collision_risk_ob[key][1]==3:
-                self.collision_risk_ob.pop(key)
-            else:
-                self.collision_risk_ob[key][1]+=1
-
         pos=np.array(sc.state[:2])
         yaw,u,t=sc.state[2:]
         t=int(t)
-        self.local_range_ob=[key for key,value in self.do_tra.items() if t<value.shape[0] and np.inner(value[t][0:2]-pos,value[t][0:2]-pos)<self.local_radius**2]
-        # self.collision_risk_ob=dict()
-        for key in self.local_range_ob:
-            tcpa,dcpa=get_cpa(self.do_tra[key][t],sc.state)
-            # print(tcpa,dcpa)
-            if tcpa>0 and tcpa<self.tcpa_min and dcpa<self.dcpa_min:
-                encounter_type=colrges_encounter_type(sc.state,self.do_tra[key][t])
-                if encounter_type=='head on':
-                    self.collision_risk_ob[key]=['head on',0]
-                elif encounter_type=='cross from right':
-                    if key not in self.collision_risk_ob or self.collision_risk_ob[key][0]=='cross from right':
-                        self.collision_risk_ob[key] = ['cross from right', 0]
-        sc.encounter_type=self.collision_risk_ob
+        dpos=self.do_tra[:,t,0:2]-pos
+        local_consider_ids=[i for i,value in enumerate(dpos) if np.inner(value,value)<self.local_radius**2]
+        self.collision_risk_ob=np.zeros((len(local_consider_ids),3),dtype=np.int)
+        for i,id in enumerate(local_consider_ids):
+            tcpa, dcpa = get_cpa( sc.state,self.do_tra[id,t])
+            encounter_type,times=0,0
+            if tcpa > 0 and tcpa < self.tcpa_min and dcpa < self.dcpa_min:
+                encounter_type = colrges_encounter_type(sc.state, self.do_tra[id,t])
+            id_father=np.where(sc.father.encounter_type[:,0]==id)[0]
+            if len(id_father)>0:
+                id_father=id_father[0]
+                if sc.father.encounter_type[id_father,2]<5 and sc.father.encounter_type[id_father,1]>encounter_type:
+                    encounter_type=sc.father.encounter_type[id_father,1]
+                    times=sc.father.encounter_type[id_father,2]+1
+            self.collision_risk_ob[i]=[id,encounter_type,times]
+        sc.encounter_type = self.collision_risk_ob
 
 
-    def colrges_cost(self,s_usv,s_ob,key):
-        x1,y1,yaw1,u1,_=s_usv
-        x2,y2,yaw2,u2,_=s_ob
-        alpha_b=yawRange(np.arctan2(y1-y2,x1-x2)-yaw2)
-        distance=np.sqrt(np.inner(s_usv[0:2]-s_ob[0:2],s_usv[0:2]-s_ob[0:2]))
-        if self.collision_risk_ob[key][0]=="head on" and alpha_b>-pi/24 and alpha_b<pi/2 and distance<30:
-            return 1.0
-        elif self.collision_risk_ob[key][0]=="cross from right" and alpha_b>-pi/4 and alpha_b<pi/8 and distance<30:
-            return 1.0
-        else:
-            return 0.0
 
 
 
@@ -331,11 +308,11 @@ def plot_circle(c,r,fig):
     return circle
 
 def plot_colrges_cost_range(x,y,yaw,encounter_type,fig):
-    if encounter_type=='head on':
+    if encounter_type==4:
         theta=-yaw*180/pi
         wedge=patches.Wedge((y,x),30,theta,theta+97.5,color='y')
         return fig.add_patch(wedge)
-    elif encounter_type=='cross from right':
+    elif encounter_type==3:
         theta=-yaw*180/pi+90
         wedge=patches.Wedge((y,x),30,theta-22.5,theta+45,color='y')
         return fig.add_patch(wedge)
@@ -356,15 +333,15 @@ def colrges_encounter_type(s_usv,s_ob):
     alpha_b=yawRange(np.arctan2(y1-y2,x1-x2)-yaw2)
     alpha_h=yawRange(yaw1-yaw2)
     if abs(alpha_b)<=pi/12 and abs(alpha_h)>=11*pi/12:
-        encounter_type="head on"
+        encounter_type=4
     elif alpha_b>pi/12 and alpha_b<3*pi/4 and alpha_h>-11*pi/12 and alpha_h<-pi/4:
-        encounter_type="cross from left"
+        encounter_type=1
     elif alpha_b>-3*pi/4 and alpha_b<-pi/12 and alpha_h>pi/4 and alpha_h<11*pi/12:
-        encounter_type="cross from right"
-    # elif abs(alpha_b)>=3*pi/4 and abs(alpha_h)<=pi/4:
-    #     encounter_type="take over"
+        encounter_type=3
+    elif abs(alpha_b)>=3*pi/4 and abs(alpha_h)<=pi/4:
+        encounter_type=2
     else:
-        encounter_type=None
+        encounter_type=0
     return encounter_type
 
 # @jit(nopython=True)
@@ -383,16 +360,16 @@ def colrges_encounter_type(s_usv,s_ob):
 #     return gs,Pss,s1_states
 
 @jit(nopython=True)
-def cost_to_come(s_state,s1_state,ucd,s_ps,s_g,MAP,map_offset,map_resolution,resolution_time,tmax,dmax):
-    Pcs,colrges_break=evaluate_primitive(s_state,ucd,MAP,map_offset,map_resolution,resolution_time)
+def cost_to_come(s_state,s1_state,ucd,s_ps,s_g,MAP,map_offset,map_resolution,resolution_time,tmax,dmax,do_tra,collision_risk_ob):
+    Pcs,colrges_break=evaluate_primitive(s_state,ucd,MAP,map_offset,map_resolution,resolution_time,do_tra,collision_risk_ob)
     # print(colrges_break)
     # colrges_break=0
-    Cs=Wn*(Wc*(s1_state[4]-s_state[4])/tmax+(1.0-Wc)*ucd[-1,5]/dmax+colrges_break/10)
+    Cs=Wn*(Wc*(s1_state[4]-s_state[4])/tmax+(1.0-Wc)*ucd[-1,5]/dmax+colrges_break)
     g=s_g+s_ps/Cg_max*((1.0-Pcs)*Cs+Pcs*Ce)
     return g,s_ps*(1-Pcs)
 
 @jit(nopython=True)
-def evaluate_primitive(s_state,ucd,MAP,map_offset,map_resolution,resolution_time):
+def evaluate_primitive(s_state,ucd,MAP,map_offset,map_resolution,resolution_time,do_tra,collision_risk_ob):
     primitives = compute_trajectory(s_state, ucd,resolution_time)
     t=np.int(s_state[4])
     colrges_break=0.0
@@ -402,7 +379,23 @@ def evaluate_primitive(s_state,ucd,MAP,map_offset,map_resolution,resolution_time
         p=collision_with_static_ob(primitives[i,0:2],MAP,map_offset,map_resolution)
         if p==1.0:
             return 1.0,0.0
-    return 1-no_Pcsu,colrges_break/primitives.shape[0]
+        no_Pcsu_t = 1.0
+        if (i + 1) % (primitives.shape[0] // 2) == 0:
+            for id,encounter_type in zip(collision_risk_ob[:,0],collision_risk_ob[:,1]):
+                colrges_break += colrges_cost(primitives[i], do_tra[id,t], encounter_type)
+                if encounter_type!=1:
+                    if encounter_type==4:
+                        pos_do = do_tra[id,t, 0:2] + 5 * np.array(
+                            [-sin(do_tra[id,t, 2]), cos(do_tra[id,t, 2])])
+                    elif encounter_type==3:
+                        pos_do = do_tra[id,t, 0:2] + 5 * np.array(
+                            [cos(do_tra[id,t, 2]), sin(do_tra[id,t, 2])])
+                    else:
+                        pos_do=do_tra[id,t, 0:2]
+                    distance = np.sqrt(np.dot(pos_do - primitives[i,0:2], pos_do - primitives[i,0:2]))
+                    no_Pcsu_t *= (1 - collision_pro_cal(distance, C_sigma * t, 6))
+            no_Pcsu *= no_Pcsu_t
+    return (1-no_Pcsu)*exp(-gamma*s_state[4]),colrges_break/2
 
 @jit(nopython=True)
 def compute_trajectory(s_state,ucd,resolution_time):
@@ -428,8 +421,46 @@ def collision_with_static_ob(pos,MAP,map_offset,map_resolution):
         return 1.0
     return 0.0
 
+@jit(nopython=True)
+def colrges_cost(s_usv,s_ob,encounter_type):
+    alpha_b=yawRange(np.arctan2(s_usv[1]-s_ob[1],s_usv[0]-s_ob[0])-s_ob[2])
+    distance=np.sqrt(np.dot(s_usv[0:2]-s_ob[0:2],s_usv[0:2]-s_ob[0:2]))
+    if encounter_type==4 and alpha_b>-pi/24 and alpha_b<pi/2 and distance<30:
+        return 1.0
+    elif encounter_type==3 and alpha_b>-pi/4 and alpha_b<pi/8 and distance<30:
+        return 1.0
+    else:
+        return 0.0
+
+@jit(nopython=True)
+def collision_pro_cal(d,sigma2,r):
+    if d==0:
+        step=r/10
+        x1=np.arange(0,r,step)
+        return np.sum(1 / (2 * pi * sigma2) * exp(-1 / 2 * x1 ** 2 / sigma2)*2*pi*x1*step)
+    elif d>=r:
+        step=(2*r)/10
+        x=np.arange(d+r-0.1,d-r,-step)
+        costheta=(x ** 2 + d ** 2 - r ** 2) / 2 / x / d
+        a=np.where((x ** 2 + d ** 2 - r ** 2) / 2 / x / d > 1.0)[0]
+        return np.sum(np.arccos((x ** 2 + d ** 2 - r ** 2) / 2 / x / d)*2*x*step / (2 * pi * sigma2) * exp(-1 / 2 * x ** 2 / sigma2))
+    else:
+        step = (2*d - 0.1) / 10
+        step1=(r-d)/10
+        x=np.arange(d+r-0.1,r-d,-step)
+        x1=np.arange(0,r-d,step1)
+        s=np.sum(np.arccos((x ** 2 + d ** 2 - r ** 2) / 2 / x / d)*2*x*step / (2 * pi * sigma2) * exp(-1 / 2 * x ** 2 / sigma2))
+        s1=np.sum(1 / (2 * pi * sigma2) * exp(-1 / 2 * x1 ** 2 / sigma2)*2*pi*x1*step1)
+        return s+s1
 
 def test_head_on():
+    #参数
+    resolution_time = 1
+    resolution_pos = 1
+    default_speed=0.8
+    primitive_file_path='control_primitives.npy'
+    e = 1.2
+
     #地图、起点、目标
     map_size = (100, 100)
     map = Map()
@@ -438,8 +469,8 @@ def test_head_on():
     fig.axis([0, map_size[0], 0, map_size[1]])
     fig.set_xlabel('E/m')
     fig.set_ylabel('N/m')
-    s0=tuple(np.array((5,5,pi/4,0.8,0),dtype=np.float64))
-    sG=tuple(np.array((80,80,pi,0.8,0),dtype=np.float64))
+    s0=tuple(np.array((20,20,pi/4,0.8,0),dtype=np.float64))
+    sG=tuple(np.array((100,100,pi,0.8,0),dtype=np.float64))
     fig.plot(sG[1], sG[0], "ob", markersize=5)
 
     #静态障碍物
@@ -456,15 +487,18 @@ def test_head_on():
         fig.add_patch(rect)
 
     #动态障碍物
-    do_tra={"do1":generate_do_trajectory(95,100,-3*pi/4,0.70,200)}
+    do_tra=np.array([generate_do_trajectory(95,100,-3*pi/4,0.70,200)])
 
 
-    dp=DeliberativePlanner(map,1,125,100,1,0.8)
+    dp=DeliberativePlanner(map,resolution_pos,resolution_time,default_speed,primitive_file_path,e)
     start_time=time.time()
     dp.set_dynamic_obstacle(do_tra)
     tra=np.array(dp.start(s0,sG,fig))
-    print("runtime is {},closelist node number is {}".format(time.time() - start_time, len(dp.closelist)))
-
+    print("runtime is {},closelist node number is {},trajectory total time is {}".format(time.time() - start_time,
+                                                                                         len(dp.closelist),
+                                                                                         tra[-1, -1]))
+    for i in range(do_tra.shape[0]):
+        fig.plot(do_tra[i,:, 1], do_tra[i,:, 0], "y")
     fig.plot(tra[:,1],tra[:,0],"r")
     for i in range(tra.shape[0]):
         if i%10==0:
@@ -476,6 +510,12 @@ def test_head_on():
     plt.show()
 
 def test_cross():
+    #参数
+    resolution_time = 1
+    resolution_pos = 1
+    default_speed=0.8
+    primitive_file_path='control_primitives.npy'
+    e = 1.2
     #地图、起点、目标
     map_size = (100, 100)
     map = Map()
@@ -502,15 +542,17 @@ def test_cross():
         fig.add_patch(rect)
 
     #动态障碍物
-    do_tra={"do1":generate_do_trajectory(10,95,-0.7,0.7,200)}
+    do_tra = np.array([generate_do_trajectory(10,95,-0.7,0.7,200)])
 
-
-    dp=DeliberativePlanner(map,1,125,100,1,0.8)
-    start_time=time.time()
-    dp.set_dynamic_obstacle(do_tra)
-    tra=np.array(dp.start(s0,sG,fig))
-    print("runtime is {},closelist node number is {}".format(time.time()-start_time,len(dp.closelist)))
-
+    dp = DeliberativePlanner(map, resolution_pos, resolution_time, default_speed, primitive_file_path, e)
+    start_time = time.time()
+    # dp.set_dynamic_obstacle(do_tra)
+    tra = np.array(dp.start(s0, sG))
+    print("runtime is {},closelist node number is {},trajectory total time is {}".format(time.time() - start_time,
+                                                                                         len(dp.closelist),
+                                                                                         tra[-1, -1]))
+    for i in range(do_tra.shape[0]):
+        fig.plot(do_tra[i, :, 1], do_tra[i, :, 0], "y")
     fig.plot(tra[:,1],tra[:,0],"r")
     for i in range(tra.shape[0]):
         if i%10==0:
@@ -581,7 +623,7 @@ def test_qingdao():
     resolution_time = 10
     resolution_pos = 50
     default_speed=4.114
-    primitive_file_path='control_primitives.npy'
+    primitive_file_path='./case1/control_primitives.npy'
     e = 1.5
 
     # 起点、目标、地图
@@ -623,8 +665,8 @@ if __name__=="__main__":
 
     # test_cross()
     # test_head_on()
-    tra=test_static()
-    # test_qingdao()
+    # tra=test_static()
+    test_qingdao()
     # control_primitives=load_control_primitives('control_primitives.npy')
     # s_state=np.array([1,1,0,0.8,0])
     # keys=np.array([itm for itm in control_primitives[0.8].keys()],dtype=np.int)

@@ -98,21 +98,21 @@ class DeliberativePlanner:
         self.resolution_pos=resolution_pos
         self.resolution_time=resolution_time
         self.e=e
-        self.Ce=1000
+        self.Ce=500
         self.Cg_max=1000
         self.Wn=1000
         self.Wc=0.5
         self.default_speed=default_speed
         self.tmax=tmax
         self.dmax=dmax
-        self.gamma=0.1
-        self.C_std=0.1
+        self.gamma=0.01
+        self.C_sigma=0.25
         self.map=map
         self.control_primitives=load_control_primitives()
         self.do_tra=None
         self.local_radius=80
-        self.tcpa_min=40
-        self.dcpa_min=8
+        self.tcpa_min=50
+        self.dcpa_min=20
         self.collision_risk_ob=dict()
         self.local_range_ob=[]
 
@@ -197,7 +197,7 @@ class DeliberativePlanner:
                             plot_lines.append(fig.plot([do_y,do_y_next],[do_x,do_x_next],'--r'))
                             if key in self.collision_risk_ob:
                                 plot_patches.append(plot_colrges_cost_range(do_x,do_y,do_yaw,self.collision_risk_ob[key][0],fig))
-                        # plot_lines.append(plot_circle((do_y,do_x),sc.state[4]*self.C_std,fig))
+                            plot_lines.append(plot_circle((do_y,do_x),np.sqrt(sc.state[4]*self.C_sigma),fig))
                 # if sc.father is not None:
                 #     fig.plot([sc.state[1],sc.father.state[1]],[sc.state[0],sc.father.state[0]],"--b")
                 plt.pause(0.0001)
@@ -209,7 +209,7 @@ class DeliberativePlanner:
 
     def cost_to_come(self,s,s1,distance):
         Pcs,colrges_break=self.evaluate_primitive(s,s1)
-        # print(colrges_break)
+        # print(np.int((s1.state[2]-s.state[2])*180/pi),Pcs)
         # colrges_break=0
         Ps=s.ps
         Cs=self.Wn*(self.Wc*(s1.state[4]-s.state[4])/self.tmax+(1.0-self.Wc)*distance/self.dmax+colrges_break)
@@ -232,19 +232,26 @@ class DeliberativePlanner:
         t=int(s.state[4])
         colrges_break=0.0
         no_Pcsu=1.0
-        for primitive in primitives:
+        for i,primitive in enumerate(primitives):
             t+=self.resolution_time
             p=self.collision_with_static_ob(primitive[0:2])
             if p==1.0:
                 return 1.0,0.0
-            for key in self.collision_risk_ob:
-                colrges_break+=self.colrges_cost(primitive,self.do_tra[key][t],key)
             no_Pcsu_t=1.0
-            for key in self.local_range_ob:
-                distance=np.sqrt(np.inner(self.do_tra[key][t,0:2]-primitive[0:2],self.do_tra[key][t,0:2]-primitive[0:2]))
-                no_Pcsu_t*=(1-min(max(0.13*(10-distance),0),1))
-            no_Pcsu=min(no_Pcsu,no_Pcsu_t)
-        return 1-no_Pcsu,colrges_break/primitives.shape[0]
+            if (i+1)%(primitives.shape[0]//2)==0:
+                for key in self.collision_risk_ob:
+                    colrges_break += self.colrges_cost(primitive, self.do_tra[key][t], key)
+                for key in self.local_range_ob:
+                    if key not in self.collision_risk_ob:
+                        pos_do = self.do_tra[key][t, 0:2]
+                    elif self.collision_risk_ob[key][0]=="head on":
+                        pos_do=self.do_tra[key][t,0:2]+5*np.array([-sin(self.do_tra[key][t,2]),cos(self.do_tra[key][t,2])])
+                    else:
+                        pos_do = self.do_tra[key][t, 0:2]
+                    distance=np.sqrt(np.inner(pos_do-primitive[0:2],pos_do-primitive[0:2]))
+                    no_Pcsu_t *= (1 - collision_pro_cal(distance,self.C_sigma*t,6))
+                no_Pcsu *=no_Pcsu_t
+        return (1-no_Pcsu)*exp(-self.gamma*s.state[4]),colrges_break/2
 
     def cost_to_go(self,s1,sG):
         d=np.sqrt((s1.state[0]-sG[0])**2+(s1.state[1]-sG[1])**2)
@@ -289,13 +296,20 @@ class DeliberativePlanner:
                     trajectory.append(states[i])
                     dY,dX=states[j-1][1]-states[i][1],states[j-1][0]-states[i][0]
                     head=np.arctan2(dY,dX)
-                    for ik in range(self.resolution_time,np.int(states[j-1][4]),self.resolution_time):
+                    for ik in range(self.resolution_time,np.int(states[j-1][4])-np.int(states[i][4]),self.resolution_time):
                         trajectory.append([states[i][0]+dX*ik/(states[j-1][4]-states[i][4]),states[i][1]+dY*ik/(states[j-1][4]-states[i][4]),head,states[i][3],states[i][4]+ik])
-                    trajectory.append(states[j-1])
+                    # trajectory.append(states[j-1])
                     i=j-1
         trajectory.append(states[i])
         if i!=j-1:
-            trajectory.append(states[j-1])
+            dY, dX = states[j - 1][1] - states[i][1], states[j - 1][0] - states[i][0]
+            head = np.arctan2(dY, dX)
+            for ik in range(self.resolution_time, np.int(states[j - 1][4]) - np.int(states[i][4]),
+                            self.resolution_time):
+                trajectory.append([states[i][0] + dX * ik / (states[j - 1][4] - states[i][4]),
+                                   states[i][1] + dY * ik / (states[j - 1][4] - states[i][4]), head, states[i][3],
+                                   states[i][4] + ik])
+            # trajectory.append(states[j - 1])
 
         return trajectory
 
@@ -346,7 +360,7 @@ class DeliberativePlanner:
         if sc.father is not None:
             self.collision_risk_ob = copy.deepcopy(sc.father.encounter_type)
         for key in list(self.collision_risk_ob.keys()):
-            if self.collision_risk_ob[key][1]==3:
+            if self.collision_risk_ob[key][1]==5:
                 self.collision_risk_ob.pop(key)
             else:
                 self.collision_risk_ob[key][1]+=1
@@ -399,6 +413,25 @@ class IntentionModel:
             obs_new[ob]=s0+[u*cos(yaw),u*sin(yaw),0,0,s_usv[4]+1]
         return obs_new
 
+
+# @jit(nopython=True)
+def collision_pro_cal(d,sigma2,r):
+    if d==0:
+        step=r/10
+        x1=np.arange(0,r,step)
+        return np.sum(1 / (2 * pi * sigma2) * exp(-1 / 2 * x1 ** 2 / sigma2)*2*pi*x1*step)
+    elif d>=r:
+        step=(2*r)/10
+        x=np.arange(d+r-0.1,d-r,-step)
+        return np.sum(np.arccos((x ** 2 + d ** 2 - r ** 2) / 2 / x / d)*2*x*step / (2 * pi * sigma2) * exp(-1 / 2 * x ** 2 / sigma2))
+    else:
+        step = (2*d) / 10
+        step1=(r-d)/10
+        x=np.arange(d+r-0.1,r-d,-step)
+        x1=np.arange(0,r-d,step1)
+        s=np.sum(np.arccos((x ** 2 + d ** 2 - r ** 2) / 2 / x / d)*2*x*step / (2 * pi * sigma2) * exp(-1 / 2 * x ** 2 / sigma2))
+        s1=np.sum(1 / (2 * pi * sigma2) * exp(-1 / 2 * x1 ** 2 / sigma2)*2*pi*x1*step1)
+        return s+s1
 
 def load_control_primitives():
     print("load control primitives from {}".format(os.curdir))
@@ -466,8 +499,8 @@ def test_head_on():
     fig.axis([0, map_size[0], 0, map_size[1]])
     fig.set_xlabel('E/m')
     fig.set_ylabel('N/m')
-    s0=tuple(np.array((5,5,pi/4,0.8,0),dtype=np.float64))
-    sG=tuple(np.array((78,100,-3*pi/4,0.8,0),dtype=np.float64))
+    s0=tuple(np.array((15,15,pi/4,0.8,0),dtype=np.float64))
+    sG=tuple(np.array((100,100,pi,0.8,0),dtype=np.float64))
     fig.plot(sG[1], sG[0], "ob", markersize=5)
 
     #静态障碍物
@@ -483,20 +516,24 @@ def test_head_on():
         rect = patches.Rectangle((ob[0], ob[1]), ob[2], ob[3], color='y')
         fig.add_patch(rect)
 
-    dp = DeliberativePlanner(map, 1, 125, 100, 1, 0.8)
+    dp = DeliberativePlanner(map, 1, 125, 100, 1, 0.8,1.2)
     #动态障碍物
-    # do_tra={"do1":np.array(dp.start(sG, s0))}
-
+    # do_tra=np.array(dp.start(sG, s0))
+    do_tra=generate_do_trajectory(95, 100, -3 * pi / 4, 0.70, 200)
+    do_tra_dic={"do1":do_tra}
+    fig.plot(do_tra[:, 1], do_tra[:, 0], "y")
 
 
     start_time=time.time()
-    # dp.set_dynamic_obstacle(do_tra)
+    dp.set_dynamic_obstacle(do_tra_dic)
     tra=np.array(dp.start(s0,sG,fig))
-    print("runtime is {},closelist node number is {}".format(time.time() - start_time, len(dp.closelist)))
+    print("runtime is {},closelist node number is {},trajectory total time is {}".format(time.time() - start_time,
+                                                                                         len(dp.closelist),
+                                                                                         tra[-1, -1]))
 
     fig.plot(tra[:,1],tra[:,0],"r")
     for i in range(tra.shape[0]):
-        if tra[i, 3] == 0.8:
+        if np.int(np.round(tra[i,2]*180/pi))%15==0  and tra[i, 3] == 0.8:
             fig.plot(tra[i,1],tra[i,0],"or",markersize=2)
 
     # a = np.array(list(dp.closelist), dtype=np.float64)
@@ -532,24 +569,30 @@ def test_cross():
         fig.add_patch(rect)
 
     #动态障碍物
-    do_tra={"do1":generate_do_trajectory(10,95,-0.7,0.7,200)}
 
+    do_tra=generate_do_trajectory(10,95,-0.7,0.75,200)
+    do_tra_dic = {"do1": do_tra}
+    fig.plot(do_tra[:, 1], do_tra[:, 0], "y")
 
-    dp=DeliberativePlanner(map,1,125,100,1,0.8)
+    dp=DeliberativePlanner(map,1,125,100,1,0.8,1.2)
     start_time=time.time()
-    dp.set_dynamic_obstacle(do_tra)
+    dp.set_dynamic_obstacle(do_tra_dic)
     tra=np.array(dp.start(s0,sG,fig))
-    print("runtime is {},closelist node number is {}".format(time.time()-start_time,len(dp.closelist)))
+    print("runtime is {},closelist node number is {},trajectory total time is {}".format(time.time() - start_time,
+                                                                                         len(dp.closelist),
+                                                                                         tra[-1, -1]))
 
     fig.plot(tra[:,1],tra[:,0],"r")
     for i in range(tra.shape[0]):
-        if i%10==0:
+        if np.int(np.round(tra[i,2]*180/pi))%15==0  and tra[i, 3] == 0.8:
             fig.plot(tra[i,1],tra[i,0],"or",markersize=2)
+            fig.plot(do_tra[i,1],do_tra[i,0],'ob',markersize=2)
 
     # a = np.array(list(dp.closelist), dtype=np.float64)
     # fig.plot(a[:,1],a[:,0],'ob',markersize=1)
 
     plt.show()
+    return tra
 
 def test_static():
     # 地图、起点、目标
@@ -560,8 +603,8 @@ def test_static():
     fig.axis([0, map_size[0], 0, map_size[1]])
     fig.set_xlabel('E/m')
     fig.set_ylabel('N/m')
-    s0 = tuple(np.array((50, 100, 0, 0.8, 0), dtype=np.float64))
-    sG = tuple(np.array((280, 280, -pi, 0.8, 0), dtype=np.float64))
+    s0 = tuple(np.array((25, 25, pi/4, 0.8, 0), dtype=np.float64))
+    sG = tuple(np.array((280, 280, -pi/2, 0.8, 0), dtype=np.float64))
     fig.plot(sG[1], sG[0], "ob", markersize=5)
 
     # 静态障碍物
@@ -569,7 +612,7 @@ def test_static():
     # rectangle_static_obstacles = ((0, 50, 60, 10), (50, 0, 10, 48))
     # rectangle_static_obstacles = ((0, 20, 80, 10), (20, 50, 80, 10))
     # rectangle_static_obstacles = ((40, 30, 60, 10), (20, 60, 20, 20))
-    rectangle_static_obstacles=((40,75,70,50),(150,75,100,50),(175,175,60,60))
+    rectangle_static_obstacles=((40,42,70,75),(150,75,100,50),(175,175,60,60))
     # rectangle_static_obstacles = ()
 
     for ob in rectangle_static_obstacles:
@@ -579,16 +622,20 @@ def test_static():
 
     dp = DeliberativePlanner(map, 1, 125, 100, 1, 0.8,1.5)
     # 动态障碍物
-    do_tra = {"do1": np.array(dp.start(sG, s0))}
 
+    s0_do = tuple(np.array((40, 200, -pi/2, 0.8, 0), dtype=np.float64))
+    sG_do = tuple(np.array((40, 20, pi/2, 0.8, 0), dtype=np.float64))
+    # do_tra=np.array(dp.start(s0_do, sG_do))
+    # do_tra_dic = {"do1": do_tra}
+    # fig.plot(do_tra[:, 1], do_tra[:, 0], "y")
 
     start_time = time.time()
-    dp.set_dynamic_obstacle(do_tra)
-    tra = np.array(dp.start(s0, sG,fig))
+    # dp.set_dynamic_obstacle(do_tra_dic)
+    tra = np.array(dp.start(s0, sG))
     print("runtime is {},closelist node number is {},trajectory total time is {}".format(time.time() - start_time,len(dp.closelist),tra[-1, -1]))
     fig.plot(tra[:, 1], tra[:, 0], "r")
     for i in range(tra.shape[0]):
-        if tra[i,3]==0.8:
+        if np.int(np.round(tra[i,2]*180/pi))%15==0  and tra[i, 3] == 0.8:
             fig.plot(tra[i, 1], tra[i, 0], "or", markersize=2)
 
     # a = np.array(list(dp.closelist), dtype=np.float64)
@@ -642,8 +689,8 @@ if __name__=="__main__":
     # # fig.plot(a[:,1],a[:,0],'ob',markersize=1)
     #
     # plt.show()
-    # test_cross()
-    tra=test_head_on()
+    tra=test_cross()
+    # tra=test_head_on()
     # tra=test_static()
 
 

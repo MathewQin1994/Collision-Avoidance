@@ -191,7 +191,7 @@ def get_all_control_primitives(save=True):
         control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False,STOP=True),dtype=np.float64)
 
     action_time = 6
-    yaw_set = np.array([-pi/2,-pi / 6,  0,  pi / 6, pi / 2], dtype=np.float64)
+    yaw_set = np.array([-pi/3,-pi / 6, pi / 6, pi / 3], dtype=np.float64)
     for yaw in yaw_set:
         key=(action_time,"{:.2f}".format(yaw))
         key = (action_time, np.int(np.round(yaw * 180 / pi)))
