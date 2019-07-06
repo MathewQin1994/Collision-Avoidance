@@ -6,7 +6,7 @@ from Astar import yawRange
 import time
 from numba import jit,prange
 from numpy.linalg import cholesky
-
+M=0
 TCPA_MIN=15
 DCPA_MIN=10
 COLREGS_COST=1.0
@@ -46,8 +46,6 @@ def collision_pro_cal(d,sigma2,r):
     elif d>=r:
         step=(2*r)/10
         x=np.arange(d+r-0.1,d-r,-step)
-        costheta=(x ** 2 + d ** 2 - r ** 2) / 2 / x / d
-        a=np.where((x ** 2 + d ** 2 - r ** 2) / 2 / x / d > 1.0)[0]
         return np.sum(np.arccos((x ** 2 + d ** 2 - r ** 2) / 2 / x / d)*2*x*step / (2 * pi * sigma2) * exp(-1 / 2 * x ** 2 / sigma2))
     else:
         step = (2*d - 0.1) / 10
@@ -68,23 +66,24 @@ def test_montecarlo():
     fig.plot(sample_nums,p)
     plt.show()
 
+@jit(nopython=True)
 def compare(n):
-    collision_pro_montecarlo(pos_usv, pos_ob, sigma, radius, 800, plot_show=False)
-    d = np.sqrt(np.inner(pos_usv - pos_ob, pos_usv - pos_ob))
-    collision_pro_cal1(d, sigma[0], radius)
+    # collision_pro_montecarlo(pos_usv, pos_ob, sigma, radius, 800, plot_show=False)
+    # d = np.sqrt(np.dot(pos_usv - pos_ob, pos_usv - pos_ob))
+    # collision_pro_cal(d, std**2, radius)
 
-    start_time=time.time()
+    # start_time=time.time()
+    # a=np.zeros(n)
+    # for i in range(n):
+    #     a[i] = collision_pro_montecarlo(pos_usv, pos_ob, sigma, radius, 800, plot_show=False)
+    # print(time.time()-start_time)
+
+    # start_time = time.time()
     a=np.zeros(n)
     for i in range(n):
-        a[i] = collision_pro_montecarlo(pos_usv, pos_ob, sigma, radius, 800, plot_show=False)
-    print(time.time()-start_time)
-
-    start_time = time.time()
-    a=np.zeros(n)
-    for i in range(n):
-        d = np.sqrt(np.inner(pos_usv - pos_ob, pos_usv - pos_ob))
-        a[i] = collision_pro_cal1(d, sigma[0], radius)
-    print(time.time()-start_time)
+        d = np.sqrt(np.dot(pos_usv - pos_ob, pos_usv - pos_ob))
+        a[i] = collision_pro_cal(d, std**2, radius)
+    # print(time.time()-start_time)
 
 
 def plot_test():
@@ -146,20 +145,21 @@ def plot_ship(fig,x,y,yaw,l,b):
     wedge=Wedge((y_p,x_p),l,theta-dtheta,theta+dtheta)
     fig.add_patch(wedge)
 
+@jit(nopython=True)
 def get_cpa(s1,s2):
     x1,y1,yaw1,u1,_=s1
     x2,y2,yaw2,u2,_=s2
     dv=np.array([u1*cos(yaw1)-u2*cos(yaw2),u1*sin(yaw1)-u2*sin(yaw2)])
     dpos=np.array([x1-x2,y1-y2])
-    tcpa=-np.inner(dv,dpos)/np.inner(dv,dv)
+    tcpa=-np.dot(dv,dpos)/np.dot(dv,dv)
     dpos1=dpos+tcpa*dv
-    dcpa=np.sqrt(np.inner(dpos1,dpos1))
+    dcpa=np.sqrt(np.dot(dpos1,dpos1))
     return tcpa,dcpa
 
 def test_cpa():
-    s1=(1,1,0.79,0.8,10)
+    s1=(1.0,1.0,0.79,0.8,10)
     s_info1=(1.2,1.2)
-    s2=(1,17,-0.79,1.0,10)
+    s2=(1.0,17.0,-0.79,1.0,10)
     s_info2=(2.0,1.0)
     ax=plt.gca()
     ax.axis([0, 20, 0, 20])
@@ -246,26 +246,30 @@ def colrges_cost(s_usv,s_ob,encounter_type):
         return 0.0
 
 if __name__=="__main__":
-    s_usv=np.array([1,1])
-    s_ob=np.array([10,10,-3*pi/4])
-    c=colrges_cost(s_usv,s_ob,4)
-    std=5
-    pos_usv=np.array((0,0))
-    pos_ob=np.array((0,10))
+    # test_cpa()
+    std=200
+    pos_usv=np.array((0.0,0.0))
+    pos_ob=np.array((0.0,1001.0))
     sigma=(std,std)
-    radius=8
+    radius=1000
     N=2400
-    n=60000
-    # compare(n)
+    n=1900000
 
-    p1=collision_pro_montecarlo(pos_usv, pos_ob, sigma, radius, 8000, plot_show=True)
-    d = np.sqrt(np.inner(pos_usv - pos_ob, pos_usv - pos_ob))
-    p2=collision_pro_cal(d,std**2,radius)
-    print(p1,p2)
 
-    ts=np.arange(300)
-    plt.figure(2)
-    plt.plot(ts,np.exp(-0.01*ts))
+    # p1=collision_pro_montecarlo(pos_usv, pos_ob, sigma, radius, 8000, plot_show=True)
+    # d = np.sqrt(np.inner(pos_usv - pos_ob, pos_usv - pos_ob))
+    # p2=collision_pro_cal(d,std**2,radius)
+    # print(p1,p2)
+    start_time=time.time()
+    compare(100)
+    print(time.time()-start_time)
+
+    start_time=time.time()
+    compare(n)
+    print(time.time()-start_time)
+    # ts=np.arange(300)
+    # plt.figure(2)
+    # plt.plot(ts,np.exp(-0.01*ts))
     # stds=range(1,20)
     # p=[]
     # for std in stds:

@@ -10,11 +10,12 @@ import matplotlib.pyplot as plt
 
 
 
+
 YAW={'0.79':pi/4,'0.52':pi/6,'0.26':pi/12,'-0.79':-pi/4,'-0.52':-pi/6,'-0.26':-pi/12,'0.00':0,'1.05':pi/3,'-1.05':-pi/3,'0.17':pi/18,'-0.17':-pi/18,'1.57':pi/2,'-1.57':-pi/2}
 Wn,Wc,Cg_max,Ce=1000,0.5,1000,500
 gamma = 0.01
 C_sigma = 0.25
-#{'None':0,'head on':4,'cross from right':3,'cross from left':1,'take over':2}
+#{'None':0,'cross from left':1,'take over':2,'cross from right':3,'head on':4}
 
 
 
@@ -116,6 +117,7 @@ class DeliberativePlanner:
         self.dcpa_min=20
         self.collision_risk_ob=np.zeros((0,3),dtype=np.int)
         # self.local_range_ob=[]
+        self.CO = 0
 
     def set_dynamic_obstacle(self,do_tra,do_config=None):
         self.do_config=do_config
@@ -124,6 +126,7 @@ class DeliberativePlanner:
     def start(self,s0,sG,fig=None):
         print('start')
         evaluate_node=0
+        max_openlist=0
         s_node=Node(s0,self.state2key(s0),0,0,1)
         self.openlist=OpenList()
         self.closelist=set()
@@ -139,9 +142,9 @@ class DeliberativePlanner:
             current_speed=sc.state[3]
             if self.do_tra.shape[0]>0:
                 self.evaluate_encounter(sc)
-            print(self.collision_risk_ob)
+            # print(self.collision_risk_ob)
+            print(self.CO)
             evaluate_node+=1
-
             for ucd in self.control_primitives[current_speed].items():
                 pos = current_pos + [ucd[1][-1,0] * cos(current_yaw) - ucd[1][-1,1] * sin(current_yaw), ucd[1][-1,0] * sin(current_yaw) + ucd[1][-1,1] * cos(current_yaw)]
                 if collision_with_static_ob(pos,self.map.map,self.map.offset,self.map.resolution)==1.0:
@@ -149,9 +152,10 @@ class DeliberativePlanner:
                 s1_state=(pos[0],pos[1],yawRange(current_yaw+ucd[0][1]*pi/180),self.default_speed,current_time+ucd[1][-1,4])
                 s1_key=self.state2key(s1_state)
                 if not s1_key in self.closelist:
-                    g, Ps=cost_to_come(sc.state,s1_state,ucd[1],sc.ps,sc.g,self.map.map,self.map.offset,self.map.resolution,
+                    g, Ps,co=cost_to_come(sc.state,s1_state,ucd[1],sc.ps,sc.g,self.map.map,self.map.offset,self.map.resolution,
                                        self.resolution_time,self.tmax,self.dmax,self.do_tra,self.collision_risk_ob)
                     # print('cost to come',g)
+                    self.CO+=co
                     if Ps<0.2:
                         continue
                     h=self.cost_to_go(s1_state,sG)
@@ -317,21 +321,21 @@ def plot_colrges_cost_range(x,y,yaw,encounter_type,fig):
         wedge=patches.Wedge((y,x),30,theta-22.5,theta+45,color='y')
         return fig.add_patch(wedge)
 
+@jit(nopython=True)
 def get_cpa(s1,s2):
     x1,y1,yaw1,u1,_=s1
     x2,y2,yaw2,u2,_=s2
     dv=np.array([u1*cos(yaw1)-u2*cos(yaw2),u1*sin(yaw1)-u2*sin(yaw2)])
     dpos=np.array([x1-x2,y1-y2])
-    tcpa=-np.inner(dv,dpos)/np.inner(dv,dv)
+    tcpa=-np.dot(dv,dpos)/np.dot(dv,dv)
     dpos1=dpos+tcpa*dv
-    dcpa=np.sqrt(np.inner(dpos1,dpos1))
+    dcpa=np.sqrt(np.dot(dpos1,dpos1))
     return tcpa,dcpa
 
+@jit(nopython=True)
 def colrges_encounter_type(s_usv,s_ob):
-    x1,y1,yaw1,u1,_=s_usv
-    x2,y2,yaw2,u2,_=s_ob
-    alpha_b=yawRange(np.arctan2(y1-y2,x1-x2)-yaw2)
-    alpha_h=yawRange(yaw1-yaw2)
+    alpha_b=yawRange(np.arctan2(s_usv[1]-s_ob[1],s_usv[0]-s_ob[0])-s_ob[2])
+    alpha_h=yawRange(s_usv[2]-s_ob[2])
     if abs(alpha_b)<=pi/12 and abs(alpha_h)>=11*pi/12:
         encounter_type=4
     elif alpha_b>pi/12 and alpha_b<3*pi/4 and alpha_h>-11*pi/12 and alpha_h<-pi/4:
@@ -361,12 +365,11 @@ def colrges_encounter_type(s_usv,s_ob):
 
 @jit(nopython=True)
 def cost_to_come(s_state,s1_state,ucd,s_ps,s_g,MAP,map_offset,map_resolution,resolution_time,tmax,dmax,do_tra,collision_risk_ob):
-    Pcs,colrges_break=evaluate_primitive(s_state,ucd,MAP,map_offset,map_resolution,resolution_time,do_tra,collision_risk_ob)
-    # print(colrges_break)
+    Pcs,colrges_break,co=evaluate_primitive(s_state,ucd,MAP,map_offset,map_resolution,resolution_time,do_tra,collision_risk_ob)
     # colrges_break=0
     Cs=Wn*(Wc*(s1_state[4]-s_state[4])/tmax+(1.0-Wc)*ucd[-1,5]/dmax+colrges_break)
     g=s_g+s_ps/Cg_max*((1.0-Pcs)*Cs+Pcs*Ce)
-    return g,s_ps*(1-Pcs)
+    return g,s_ps*(1-Pcs),co
 
 @jit(nopython=True)
 def evaluate_primitive(s_state,ucd,MAP,map_offset,map_resolution,resolution_time,do_tra,collision_risk_ob):
@@ -374,13 +377,17 @@ def evaluate_primitive(s_state,ucd,MAP,map_offset,map_resolution,resolution_time
     t=np.int(s_state[4])
     colrges_break=0.0
     no_Pcsu=1.0
+    co=0
     for i in range(primitives.shape[0]):
         t+=resolution_time
         p=collision_with_static_ob(primitives[i,0:2],MAP,map_offset,map_resolution)
         if p==1.0:
-            return 1.0,0.0
+            return 1.0,0.0,co
         no_Pcsu_t = 1.0
         if (i + 1) % (primitives.shape[0] // 2) == 0:
+            colrges_cost(primitives[i], np.array([10.0,10.0,pi,4.0]), 1)
+            collision_pro_cal(1001.0, C_sigma * t, 1000.0)
+            co+=1
             for id,encounter_type in zip(collision_risk_ob[:,0],collision_risk_ob[:,1]):
                 colrges_break += colrges_cost(primitives[i], do_tra[id,t], encounter_type)
                 if encounter_type!=1:
@@ -395,7 +402,7 @@ def evaluate_primitive(s_state,ucd,MAP,map_offset,map_resolution,resolution_time
                     distance = np.sqrt(np.dot(pos_do - primitives[i,0:2], pos_do - primitives[i,0:2]))
                     no_Pcsu_t *= (1 - collision_pro_cal(distance, C_sigma * t, 6))
             no_Pcsu *= no_Pcsu_t
-    return (1-no_Pcsu)*exp(-gamma*s_state[4]),colrges_break/2
+    return (1-no_Pcsu)*exp(-gamma*s_state[4]),colrges_break/2,co
 
 @jit(nopython=True)
 def compute_trajectory(s_state,ucd,resolution_time):
@@ -635,7 +642,7 @@ def test_qingdao():
         map.load_map(np.array(json.load(f)),2,(-17000,-17000))
 
 
-    es=[1]
+    es=[1,1]
     for e in es:
         dp = DeliberativePlanner(map,resolution_pos,resolution_time,default_speed,primitive_file_path,e)
         start_time = time.time()
