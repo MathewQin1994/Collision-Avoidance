@@ -1,4 +1,3 @@
-
 class PIDcontroller:
     def __init__(self,kp,ki,kd,dt):
         self.Kp=kp
