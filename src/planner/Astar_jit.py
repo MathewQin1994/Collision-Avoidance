@@ -8,7 +8,10 @@ import matplotlib.pyplot as plt
 FORMAT = '%(asctime)-15s [%(levelname)s] [%(filename)s:%(lineno)s] %(message)s'
 logging.basicConfig(format=FORMAT, level=logging.INFO)
 
-Wn, Wc, Cg_max, Ce = 1000, 0.5, 1000, 500
+Wn = 1000
+Wc = 0.5
+Cg_max = 1000
+Ce = 500
 gamma = 0.01
 C_sigma = 0.25
 # {'None':0,'cross from left':1,'take over':2,'cross from right':3,'head on':4}
@@ -40,8 +43,7 @@ class OpenList:
 
     def swim(self, k):
         while k > 1 and self._heap[k // 2].cost > self._heap[k].cost:
-            self._heap[k], self._heap[k //
-                                      2] = self._heap[k // 2], self._heap[k]
+            self._heap[k], self._heap[k // 2] = self._heap[k // 2], self._heap[k]
             self._idx[self._heap[k].key] = k
             self._idx[self._heap[k // 2].key] = k // 2
             k = k // 2
@@ -169,7 +171,6 @@ class DeliberativePlanner:
                     s1 = Node(s1_state, s1_key, g, g + self.e * h, Ps, sc)
                     if s1 in self.openlist:
                         if s1.cost < self.openlist._heap[self.openlist._idx[s1.key]].cost:
-                            # test_dic.setdefault(s1_key, [self.openlist._heap[self.openlist._idx[s1_key]].state[2:]]).append(s1_state[2:])
                             self.openlist.update(s1)
                     else:
                         self.openlist.insert(s1)
@@ -177,7 +178,6 @@ class DeliberativePlanner:
                         #     fig.plot(s1_state[1],s1_state[0],'ob',markersize=1)
 
             if fig:
-
                 try:
                     for plot_line in plot_lines:
                         fig.lines.remove(plot_line[0])
@@ -290,21 +290,12 @@ class DeliberativePlanner:
             s1_state[4] - s_state[4]), np.int(np.round(180 / pi * yawRange(s1_state[2] - s_state[2]))))]
         yaw = s_state[2]
         state_all = []
-        for i in range(
-                self.resolution_time - 1,
-                ucd.shape[0],
-                self.resolution_time):
-            state_all.append([s_state[0] +
-                              ucd[i, 0] *
-                              cos(yaw) -
-                              ucd[i, 1] *
-                              sin(yaw), s_state[1] +
-                              ucd[i, 0] *
-                              sin(yaw) +
-                              ucd[i, 1] *
-                              cos(yaw), yawRange(yaw +
-                                                 ucd[i, 2]), ucd[i, 3], s_state[4] +
-                              ucd[i, 4]])
+        for i in range(self.resolution_time - 1, ucd.shape[0], self.resolution_time):
+            state_all.append([s_state[0] + ucd[i, 0] * cos(yaw) - ucd[i, 1] * sin(yaw),
+                              s_state[1] + ucd[i, 0] * sin(yaw) + ucd[i, 1] * cos(yaw),
+                              yawRange(yaw + ucd[i, 2]),
+                              ucd[i, 3],
+                              s_state[4] + ucd[i, 4]])
         return np.array(state_all)
 
     def evaluate_encounter(self, sc):
@@ -326,9 +317,7 @@ class DeliberativePlanner:
             id_father = np.where(sc.father.encounter_type[:, 0] == id)[0]
             if len(id_father) > 0:
                 id_father = id_father[0]
-                if sc.father.encounter_type[id_father,
-                                            2] < 5 and sc.father.encounter_type[id_father,
-                                                                                1] > encounter_type:
+                if sc.father.encounter_type[id_father, 2] < 5 and sc.father.encounter_type[id_father, 1] > encounter_type:
                     encounter_type = sc.father.encounter_type[id_father, 1]
                     times = sc.father.encounter_type[id_father, 2] + 1
             self.collision_risk_ob[i] = [id, encounter_type, times]
@@ -483,17 +472,11 @@ def compute_trajectory(s_state, ucd, resolution_time):
     yaw = s_state[2]
     state_all = []
     for i in range(resolution_time - 1, ucd.shape[0], resolution_time):
-        state_all.append([s_state[0] +
-                          ucd[i, 0] *
-                          cos(yaw) -
-                          ucd[i, 1] *
-                          sin(yaw), s_state[1] +
-                          ucd[i, 0] *
-                          sin(yaw) +
-                          ucd[i, 1] *
-                          cos(yaw), yawRange(yaw +
-                                             ucd[i, 2]), ucd[i, 3], s_state[4] +
-                          ucd[i, 4]])
+        state_all.append([s_state[0] + ucd[i, 0] * cos(yaw) - ucd[i, 1] * sin(yaw),
+                          s_state[1] + ucd[i, 0] * sin(yaw) + ucd[i, 1] * cos(yaw),
+                          yawRange(yaw + ucd[i, 2]),
+                          ucd[i, 3],
+                          s_state[4] + ucd[i, 4]])
     return np.array(state_all)
 
 
