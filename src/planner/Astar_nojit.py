@@ -137,7 +137,7 @@ class DeliberativePlanner:
             sc = self.openlist.pop()
             self.closelist.add(sc.key)
             if (sc.state[0] - sG[0])**2 + (sc.state[1] - sG[1])**2 <= (self.resolution_pos * 5)**2:
-                return self.generate_total_trajectory1(sc)
+                return self.generate_total_trajectory(sc)
             current_yaw = sc.state[2]
             current_pos = np.array(sc.state[0:2])
             current_time = sc.state[4]
@@ -175,7 +175,7 @@ class DeliberativePlanner:
                     else:
                         self.openlist.insert(s1)
                         # if fig:
-                        #     fig.plot(s1_state[1],s1_state[0],'og',markersize=1)
+                        #     fig.plot(s1_state[1],s1_state[0],'ob',markersize=1)
 
             if fig:
                 try:
@@ -193,7 +193,7 @@ class DeliberativePlanner:
                 plot_lines = []
                 plot_patches = []
                 # plot_lines.append(fig.plot(sc.state[1], sc.state[0], "or", markersize=5))
-                fig.plot(sc.key[1], sc.key[0], "ob", markersize=2)
+                fig.plot(sc.key[1], sc.key[0], "ob", markersize=1)
                 fig.add_patch(
                     patches.Arrow(
                         sc.key[1],
@@ -347,7 +347,7 @@ def plot_colrges_cost_range(x, y, yaw, encounter_type, fig):
         return fig.add_patch(wedge)
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def get_cpa(s1, s2):
     x1, y1, yaw1, u1, _ = s1
     x2, y2, yaw2, u2, _ = s2
@@ -360,7 +360,7 @@ def get_cpa(s1, s2):
     return tcpa, dcpa
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def colrges_encounter_type(s_usv, s_ob):
     alpha_b = yawRange(
         np.arctan2(
@@ -398,7 +398,7 @@ def colrges_encounter_type(s_usv, s_ob):
 #     return gs,Pss,s1_states
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def cost_to_come(
         s_state,
         s1_state,
@@ -422,7 +422,7 @@ def cost_to_come(
     return g, s_ps * (1 - Pcs)
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def evaluate_primitive(
         s_state,
         ucd,
@@ -444,8 +444,8 @@ def evaluate_primitive(
             return 1.0, 0.0
         no_Pcsu_t = 1.0
         if (i + 1) % (primitives.shape[0] // 2) == 0:
-            colrges_cost(primitives[i], np.array([10.0, 10.0, pi, 4.0]), 1)
-            collision_pro_cal(1001.0, C_sigma * t, 1000.0)
+            # colrges_cost(primitives[i], np.array([10.0, 10.0, pi, 4.0]), 1)
+            # collision_pro_cal(1001.0, C_sigma * t, 1000.0)
             for id, encounter_type in zip(
                     collision_risk_ob[:, 0], collision_risk_ob[:, 1]):
                 colrges_break += colrges_cost(
@@ -467,7 +467,7 @@ def evaluate_primitive(
     return (1 - no_Pcsu) * exp(-gamma * s_state[4]), colrges_break / 2
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def compute_trajectory(s_state, ucd, resolution_time):
     yaw = s_state[2]
     state_all = []
@@ -480,7 +480,7 @@ def compute_trajectory(s_state, ucd, resolution_time):
     return np.array(state_all)
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def yawRange(x):
     if x > pi:
         x = x - 2 * pi
@@ -489,7 +489,7 @@ def yawRange(x):
     return x
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def collision_with_static_ob(pos, static_map, map_offset, map_resolution):
     pos_key = (
         np.int(
@@ -504,7 +504,7 @@ def collision_with_static_ob(pos, static_map, map_offset, map_resolution):
     return 0.0
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def colrges_cost(s_usv, s_ob, encounter_type):
     alpha_b = yawRange(
         np.arctan2(
@@ -522,7 +522,7 @@ def colrges_cost(s_usv, s_ob, encounter_type):
         return 0.0
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def collision_pro_cal(d, sigma2, r):
     if d == 0:
         step = r / 10

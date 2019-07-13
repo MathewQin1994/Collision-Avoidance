@@ -233,7 +233,8 @@ class DeliberativePlanner:
     def state2key(self, s_state):
         x, y, yaw, u, t = s_state
         return (int(round(x / self.resolution_pos) * self.resolution_pos),
-                int(round(y / self.resolution_pos) * self.resolution_pos))
+                int(round(y / self.resolution_pos) * self.resolution_pos),
+                int(round(yaw / pi * 4)))
 
     def cost_to_go(self, s1_state, sG_state):
         d = np.sqrt((s1_state[0] - sG_state[0])**2 +

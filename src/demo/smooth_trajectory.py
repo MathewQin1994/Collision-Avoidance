@@ -1,4 +1,4 @@
-from src.planner.Astar_jit import DeliberativePlanner
+from src.planner.Astar_nojit import DeliberativePlanner
 from numpy import pi
 from src.map.staticmap import Map, generate_do_trajectory
 import numpy as np
@@ -16,7 +16,7 @@ def test_head_on():
     resolution_pos = 1
     default_speed = 0.8
     primitive_file_path = '../primitive/control_primitives.npy'
-    e = 1.2
+    e = 1
 
     # 地图、起点、目标
     map_size = (100, 100)
@@ -27,7 +27,7 @@ def test_head_on():
     fig.set_xlabel('E/m')
     fig.set_ylabel('N/m')
     s0 = tuple(np.array((20, 20, pi / 4, 0.8, 0), dtype=np.float64))
-    sG = tuple(np.array((100, 100, pi, 0.8, 0), dtype=np.float64))
+    sG = tuple(np.array((81.3, 100, pi, 0.8, 0), dtype=np.float64))
     fig.plot(sG[1], sG[0], "ob", markersize=5)
 
     # 静态障碍物
@@ -44,7 +44,7 @@ def test_head_on():
 
     # 动态障碍物
     do_tra = np.array(
-        [generate_do_trajectory(95, 100, -3 * pi / 4, 0.70, 200)])
+        [generate_do_trajectory(100, 100, -3 * pi / 4, 0.70, 200)])
 
     dp = DeliberativePlanner(
         static_map,
@@ -54,16 +54,16 @@ def test_head_on():
         primitive_file_path,
         e)
     start_time = time.time()
-    dp.set_dynamic_obstacle(do_tra)
-    tra = np.array(dp.start(s0, sG,fig))
+    # dp.set_dynamic_obstacle(do_tra)
+    tra = np.array(dp.start(s0, sG))
     logging.info("runtime is {},closelist node number is {},trajectory total time is {}".format(
         time.time() - start_time, len(dp.closelist), tra[-1, -1]))
-    for i in range(do_tra.shape[0]):
-        fig.plot(do_tra[i, :, 1], do_tra[i, :, 0], "r")
+    # for i in range(do_tra.shape[0]):
+    #     fig.plot(do_tra[i, :, 1], do_tra[i, :, 0], "r")
     fig.plot(tra[:, 1], tra[:, 0], "b")
-    # for i in range(tra.shape[0]):
-    #     if tra[i, 3] == 0.8:
-    #         fig.plot(tra[i, 1], tra[i, 0], "or", markersize=2)
+    for i in range(tra.shape[0]):
+        if tra[i, 3] == 0.8:
+            fig.plot(tra[i, 1], tra[i, 0], "or", markersize=2)
 
     # a = np.array(list(dp.closelist), dtype=np.float64)
     # fig.plot(a[:,1],a[:,0],'ob',markersize=1)
