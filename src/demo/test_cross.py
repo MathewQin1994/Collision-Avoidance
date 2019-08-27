@@ -15,7 +15,7 @@ def test_cross():
     resolution_time = 1
     resolution_pos = 1
     default_speed = 0.8
-    primitive_file_path = 'control_primitives.npy'
+    primitive_file_path = '../primitive/control_primitives.npy'
     e = 1.2
     # 地图、起点、目标
     map_size = (100, 100)
@@ -52,8 +52,8 @@ def test_cross():
         primitive_file_path,
         e)
     start_time = time.time()
-    # dp.set_dynamic_obstacle(do_tra)
-    tra = np.array(dp.start(s0, sG))
+    dp.set_dynamic_obstacle(do_tra)
+    tra = np.array(dp.start(s0, sG,fig))
     logging.info("runtime is {},closelist node number is {},trajectory total time is {}".format(
         time.time() - start_time, len(dp.closelist), tra[-1, -1]))
     for i in range(do_tra.shape[0]):

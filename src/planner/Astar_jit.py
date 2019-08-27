@@ -13,7 +13,10 @@ Wc = 0.5
 Cg_max = 1000
 Ce = 500
 gamma = 0.01
+# gamma=0
 C_sigma = 0.25
+C_colrges=5
+dimension=2
 # {'None':0,'cross from left':1,'take over':2,'cross from right':3,'head on':4}
 
 
@@ -113,7 +116,7 @@ class DeliberativePlanner:
         self.dmax = np.sum(static_map.size) * static_map.resolution / 2
         self.tmax = self.dmax / self.default_speed
         self.control_primitives = load_control_primitives(primitive_file_path)
-        self.do_tra = np.zeros((0, 0, 6))
+        self.do_tra = np.zeros((0, 0, 5))
         self.local_radius = 80
         self.tcpa_min = 50
         self.dcpa_min = 20
@@ -127,7 +130,7 @@ class DeliberativePlanner:
         self.do_tra = do_tra
 
     def start(self, s0, sG, fig=None):
-        logging.info('start')
+        # logging.info('start')
         evaluate_node = 0
         s_node = Node(s0, self.state2key(s0), 0, 0, 1)
         self.openlist = OpenList()
@@ -142,7 +145,7 @@ class DeliberativePlanner:
             current_pos = np.array(sc.state[0:2])
             current_time = sc.state[4]
             current_speed = sc.state[3]
-            if self.do_tra.shape[0] > 0:
+            if self.do_tra.shape[0] > 0 and self.do_tra.shape[1]>current_time:
                 self.evaluate_encounter(sc)
             # print(self.collision_risk_ob)
             evaluate_node += 1
@@ -232,8 +235,13 @@ class DeliberativePlanner:
 
     def state2key(self, s_state):
         x, y, yaw, u, t = s_state
-        return (int(round(x / self.resolution_pos) * self.resolution_pos),
-                int(round(y / self.resolution_pos) * self.resolution_pos))
+        if dimension==2:
+            return (int(round(x / self.resolution_pos) * self.resolution_pos),
+                    int(round(y / self.resolution_pos) * self.resolution_pos))
+        elif dimension==3:
+            return (int(round(x / self.resolution_pos) * self.resolution_pos),
+                    int(round(y / self.resolution_pos) * self.resolution_pos),
+                    int(round(yaw / pi * 4)))
 
     def cost_to_go(self, s1_state, sG_state):
         d = np.sqrt((s1_state[0] - sG_state[0])**2 +
@@ -254,34 +262,46 @@ class DeliberativePlanner:
         trajectory.reverse()
         return trajectory
 
-    def generate_total_trajectory1(self, s):
-        states = []
+    def generate_total_trajectory1(self,s):
+        states=[]
         while s is not None:
             states.append(s.state)
-            s = s.father
+            s=s.father
         states.reverse()
-        i, j = 0, 1
-        trajectory = []
-        while j < len(states):
-            if abs(states[j][2] - states[i][2]) < 0.3 and abs(states[j][2] - states[j - 1][2]) < 0.3 and states[j][2] - states[j - 1][2] != 0.0:
-                j += 1
+        i,j=0,1
+        trajectory=[]
+        while j<len(states):
+
+            if abs(states[j][2]-states[i][2])<0.3 and abs(states[j][2]-states[j-1][2])<0.3 and states[j][2]-states[j-1][2]!=0.0:
+                j+=1
             else:
-                if j - i <= 2:
-                    for ik in range(i, j):
+                if j-i<=2:
+                    for ik in range(i,j):
                         trajectory.append(states[ik])
-                        pos_all = self.compute_trajectory(
-                            states[ik], states[ik + 1])
-                        for k in range(len(pos_all) - 1):
+                        pos_all=self.compute_trajectory(states[ik],states[ik+1])
+                        for k in range(len(pos_all)-1):
                             trajectory.append(pos_all[k])
-                    i = j
-                    j += 1
+                    i=j
+                    j+=1
                 else:
                     trajectory.append(states[i])
-                    trajectory.append(states[j - 1])
-                    i = j - 1
+                    dY,dX=states[j-1][1]-states[i][1],states[j-1][0]-states[i][0]
+                    head=np.arctan2(dY,dX)
+                    for ik in range(self.resolution_time,np.int(states[j-1][4])-np.int(states[i][4]),self.resolution_time):
+                        trajectory.append([states[i][0]+dX*ik/(states[j-1][4]-states[i][4]),states[i][1]+dY*ik/(states[j-1][4]-states[i][4]),head,states[i][3],states[i][4]+ik])
+                    # trajectory.append(states[j-1])
+                    i=j-1
         trajectory.append(states[i])
-        if i != j - 1:
-            trajectory.append(states[j - 1])
+        if i!=j-1:
+            dY, dX = states[j - 1][1] - states[i][1], states[j - 1][0] - states[i][0]
+            head = np.arctan2(dY, dX)
+            for ik in range(self.resolution_time, np.int(states[j - 1][4]) - np.int(states[i][4]),
+                            self.resolution_time):
+                trajectory.append([states[i][0] + dX * ik / (states[j - 1][4] - states[i][4]),
+                                   states[i][1] + dY * ik / (states[j - 1][4] - states[i][4]), head, states[i][3],
+                                   states[i][4] + ik])
+            # trajectory.append(states[j - 1])
+
         return trajectory
 
     def compute_trajectory(self, s_state, s1_state):
@@ -314,13 +334,14 @@ class DeliberativePlanner:
             if tcpa > 0 and tcpa < self.tcpa_min and dcpa < self.dcpa_min:
                 encounter_type = colrges_encounter_type(
                     sc.state, self.do_tra[id, t])
-            id_father = np.where(sc.father.encounter_type[:, 0] == id)[0]
-            if len(id_father) > 0:
-                id_father = id_father[0]
-                if sc.father.encounter_type[id_father, 2] < 5 and sc.father.encounter_type[id_father, 1] > encounter_type:
-                    encounter_type = sc.father.encounter_type[id_father, 1]
-                    times = sc.father.encounter_type[id_father, 2] + 1
-            self.collision_risk_ob[i] = [id, encounter_type, times]
+            if sc.father:
+                id_father = np.where(sc.father.encounter_type[:, 0] == id)[0]
+                if len(id_father) > 0:
+                    id_father = id_father[0]
+                    if sc.father.encounter_type[id_father, 2] < 5 and sc.father.encounter_type[id_father, 1] > encounter_type:
+                        encounter_type = sc.father.encounter_type[id_father, 1]
+                        times = sc.father.encounter_type[id_father, 2] + 1
+                self.collision_risk_ob[i] = [id, encounter_type, times]
         sc.encounter_type = self.collision_risk_ob
 
 
@@ -354,12 +375,37 @@ def get_cpa(s1, s2):
     dv = np.array([u1 * cos(yaw1) - u2 * cos(yaw2),
                    u1 * sin(yaw1) - u2 * sin(yaw2)])
     dpos = np.array([x1 - x2, y1 - y2])
-    tcpa = -np.dot(dv, dpos) / np.dot(dv, dv)
+    fenmu=np.dot(dv, dv)
+    if fenmu>0:
+        tcpa = -np.dot(dv, dpos) / fenmu
+    else:
+        tcpa=-np.dot(dv, dpos)*np.inf
     dpos1 = dpos + tcpa * dv
     dcpa = np.sqrt(np.dot(dpos1, dpos1))
     return tcpa, dcpa
 
 
+# @jit(nopython=True)
+# def colrges_encounter_type(s_usv, s_ob):
+#     alpha_b = yawRange(
+#         np.arctan2(
+#             s_usv[1] -
+#             s_ob[1],
+#             s_usv[0] -
+#             s_ob[0]) -
+#         s_ob[2])
+#     alpha_h = yawRange(s_usv[2] - s_ob[2])
+#     if abs(alpha_b) <= pi / 12 and abs(alpha_h) >= 11 * pi / 12:
+#         encounter_type = 4
+#     elif alpha_b > pi / 12 and alpha_b < 3 * pi / 4 and alpha_h > -11 * pi / 12 and alpha_h < -pi / 4:
+#         encounter_type = 1
+#     elif alpha_b > -3 * pi / 4 and alpha_b < -pi / 12 and alpha_h > pi / 4 and alpha_h < 11 * pi / 12:
+#         encounter_type = 3
+#     elif abs(alpha_b) >= 3 * pi / 4 and abs(alpha_h) <= pi / 4:
+#         encounter_type = 2
+#     else:
+#         encounter_type = 0
+#     return encounter_type
 @jit(nopython=True)
 def colrges_encounter_type(s_usv, s_ob):
     alpha_b = yawRange(
@@ -370,7 +416,7 @@ def colrges_encounter_type(s_usv, s_ob):
             s_ob[0]) -
         s_ob[2])
     alpha_h = yawRange(s_usv[2] - s_ob[2])
-    if abs(alpha_b) <= pi / 12 and abs(alpha_h) >= 11 * pi / 12:
+    if abs(alpha_b) <= pi / 12 and abs(alpha_h) >= 3 * pi / 4:
         encounter_type = 4
     elif alpha_b > pi / 12 and alpha_b < 3 * pi / 4 and alpha_h > -11 * pi / 12 and alpha_h < -pi / 4:
         encounter_type = 1
@@ -417,7 +463,7 @@ def cost_to_come(
         s_state, ucd, static_map, map_offset, map_resolution, resolution_time, do_tra, collision_risk_ob)
     # colrges_break=0
     Cs = Wn * (Wc * (s1_state[4] - s_state[4]) / tmax +
-               (1.0 - Wc) * ucd[-1, 5] / dmax + colrges_break)
+               (1.0 - Wc) * ucd[-1, 5] / dmax + C_colrges*colrges_break)
     g = s_g + s_ps / Cg_max * ((1.0 - Pcs) * Cs + Pcs * Ce)
     return g, s_ps * (1 - Pcs)
 
@@ -444,21 +490,22 @@ def evaluate_primitive(
             return 1.0, 0.0
         no_Pcsu_t = 1.0
         if (i + 1) % (primitives.shape[0] // 2) == 0:
-            colrges_cost(primitives[i], np.array([10.0, 10.0, pi, 4.0]), 1)
-            collision_pro_cal(1001.0, C_sigma * t, 1000.0)
+            # colrges_cost(primitives[i], np.array([10.0, 10.0, pi, 4.0]), 1)
+            # collision_pro_cal(1001.0, C_sigma * t, 1000.0)
             for id, encounter_type in zip(
                     collision_risk_ob[:, 0], collision_risk_ob[:, 1]):
                 colrges_break += colrges_cost(
                     primitives[i], do_tra[id, t], encounter_type)
                 if encounter_type != 1:
-                    if encounter_type == 4:
-                        pos_do = do_tra[id, t, 0:2] + 5 * np.array(
-                            [-sin(do_tra[id, t, 2]), cos(do_tra[id, t, 2])])
-                    elif encounter_type == 3:
-                        pos_do = do_tra[id, t, 0:2] + 5 * np.array(
-                            [cos(do_tra[id, t, 2]), sin(do_tra[id, t, 2])])
-                    else:
-                        pos_do = do_tra[id, t, 0:2]
+                    # if encounter_type == 4:
+                    #     pos_do = do_tra[id, t, 0:2] + 5 * np.array(
+                    #         [-sin(do_tra[id, t, 2]), cos(do_tra[id, t, 2])])
+                    # elif encounter_type == 3:
+                    #     pos_do = do_tra[id, t, 0:2] + 5 * np.array(
+                    #         [cos(do_tra[id, t, 2]), sin(do_tra[id, t, 2])])
+                    # else:
+                    #     pos_do = do_tra[id, t, 0:2]
+                    pos_do = do_tra[id, t, 0:2]
                     distance = np.sqrt(
                         np.dot(pos_do - primitives[i, 0:2], pos_do - primitives[i, 0:2]))
                     no_Pcsu_t *= (1 - collision_pro_cal(distance,
@@ -498,7 +545,7 @@ def collision_with_static_ob(pos, static_map, map_offset, map_resolution):
         np.int(
             np.round(
                     (pos[0] - map_offset[1]) / map_resolution)))
-    if pos_key[0] < 0 or pos_key[0] >= static_map.shape[1] or pos_key[1] < 0 or pos_key[1] >= static_map.shape[0] or static_map[
+    if pos_key[0] < 0 or pos_key[0] >= static_map.shape[0] or pos_key[1] < 0 or pos_key[1] >= static_map.shape[1] or static_map[
             pos_key[0], pos_key[1]] == 1:
         return 1.0
     return 0.0
