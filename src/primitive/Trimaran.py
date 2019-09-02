@@ -1,9 +1,9 @@
 import numpy as np
 from numpy import sin,cos,pi,ceil
 import matplotlib.pyplot as plt
-from msgdev import PeriodTimer
+# from msgdev import PeriodTimer
 import time
-from PID import PIDcontroller
+from src.control.PID import PIDcontroller
 
 # 粘性阻力系数Cr=(Xuu,Xrr,Yv,Yr,Nv,Nr,Nrr)
 # Cr=(-6.7,15.9,-29.5,11.8,-0.17,-2.74,-4.78)
@@ -170,7 +170,8 @@ def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False,
             if not yaw_stop:
                 if (target_yaw-s0[5])*(target_yaw-s[5])<=0:
                     yaw_stop=True
-            if yaw_stop and speed_stop and i%10==0 and i>=action_time*10:
+            # if yaw_stop and speed_stop and i%10==0 and i>=action_time*10:
+            if i >= action_time * 10:
                 break
         i+=1
     if plot:
@@ -180,7 +181,7 @@ def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False,
 
 def get_all_control_primitives(save=True):
     # time_set=np.array([10,5],dtype=np.int)
-    u=0.8
+    u=1.2
     control_primitives=dict()
     action_time=10
     control_primitives[u]=dict()
@@ -206,7 +207,7 @@ def get_all_control_primitives(save=True):
         control_primitives[0.0][key] = np.array(
             control_action_primitives((0.0, 0, 0, 0, 0, 0), u, yaw, action_time, plot=False, STOP=True), dtype=np.float64)
     if save:
-        np.save('control_primitives.npy',control_primitives)
+        np.save('control_primitives{}.npy'.format(u),control_primitives)
     return control_primitives
 
 def control_primitives_visual(control_primitives):

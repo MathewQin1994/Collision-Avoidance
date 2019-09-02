@@ -13,6 +13,7 @@ logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 
 def do_predict(dp,s0,sG):
+    s0=(s0[0],s0[1],s0[2],round(s0[3] / 0.4) * 0.4,s0[4])
     tra = np.array(dp.start(s0, sG))
     if tra.shape[0]>200:
         tra=tra[:200,:]
@@ -32,7 +33,11 @@ def simulation(s0,sG,dp,do_dp,fig,do_tra_true=dict(),do_goal=dict(),predict_time
     while True:
         do_tra=[]
         for key in do_tra_true:
-            do_tra.append(do_predict(do_dp[key], tuple(do_tra_true[key][time_stamp]), do_goal[key]))
+            if do_tra_true[key].shape[0] > time_stamp:
+                do_tra.append(do_predict(do_dp[key], tuple(do_tra_true[key][time_stamp]), do_goal[key]))
+            else:
+                do_tra.append(do_predict(do_dp[key], tuple(do_tra_true[key][-1]), do_goal[key]))
+
         if len(do_tra_true.keys())>0:
             do_tra = np.array(do_tra)
             dp.set_dynamic_obstacle(do_tra)
@@ -59,7 +64,8 @@ def simulation(s0,sG,dp,do_dp,fig,do_tra_true=dict(),do_goal=dict(),predict_time
         plot_lines.append(fig.plot(s0[1], s0[0], "ob", markersize=5))
         plot_lines.append(fig.plot(tra[:, 1], tra[:, 0], "--b"))
         for i,key in enumerate(do_tra_true):
-            plot_lines.append(fig.plot(do_tra_true[key][time_stamp, 1], do_tra_true[key][time_stamp, 0], "or", markersize=5))
+            if do_tra_true[key].shape[0]>time_stamp:
+                plot_lines.append(fig.plot(do_tra_true[key][time_stamp, 1], do_tra_true[key][time_stamp, 0], "or", markersize=5))
             plot_lines.append(fig.plot(do_tra[i,10:, 1], do_tra[i,10:, 0], "--r"))
 
         plt.pause(0.1)

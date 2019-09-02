@@ -14,10 +14,11 @@ if __name__=="__main__":
 
     # 地图、起点、目标
     static_map = Map()
-    static_map.load_map(np.loadtxt('../map/static_map2.txt', dtype=np.int8), 1)
-    s0 = tuple(np.array((183, 213, 0.86-pi, 0.8, 10), dtype=np.float64))
-    s0 = tuple(np.array((200, 180, 0, 0.8, 10), dtype=np.float64))
-    sG = tuple(np.array((74, 150, pi, 0.8, 0), dtype=np.float64))
+    static_map.load_map(np.loadtxt('../map/static_map1.txt', dtype=np.int8), 1)
+    s0 = tuple(np.array((174, 201, 0.86-pi, 0.8, 10), dtype=np.float64))
+    # s0 = tuple(np.array((190, 1, 1.57, 0.8, 0), dtype=np.float64))
+    sG = tuple(np.array((41, 71, pi, 0.8, 0), dtype=np.float64))
+    # sG = tuple(np.array((55, 180, pi, 0.8, 0), dtype=np.float64))
 
 
     fig = plt.gca()
@@ -38,7 +39,7 @@ if __name__=="__main__":
     fig.set_xlabel('E/m')
     fig.set_ylabel('N/m')
     fig.plot(sG[1], sG[0], "ob", markersize=5)
-
+    # plt.show()
     # 本船参数和规划器
     resolution_time = 1
     resolution_pos = 1
@@ -59,10 +60,12 @@ if __name__=="__main__":
     do_tra_true = dict()
     do_goal=dict()
 
-    do_s0['1']=(86, 94, 0.86, 0.8, 0)
-    do_goal['1'] = (183, 213)
-    do_s0['2']=(110, 95, 0.86, 0.8, 0)
-    do_goal['2'] = (168, 222)
+    do_s0['1']=(190, 1, 1.57, 0.8, 0)
+    do_goal['1'] = (53, 121)
+    do_s0['2']=(35, 114, 0, 0.8, 0)
+    do_goal['2'] = (147, 177)
+    do_s0['3']=(159, 155, pi, 0.4, 0)
+    do_goal['3'] = (99, 93)
 
     for key in do_s0:
         do_dp[key] = DeliberativePlanner(

@@ -42,7 +42,7 @@ def test_cross():
         fig.add_patch(rect)
 
     # 动态障碍物
-    do_tra = np.array([generate_do_trajectory(10, 95, -0.7, 0.7, 200)])
+    do_tra = np.array([generate_do_trajectory(95, 10, pi-0.7, 0.7, 200)])
 
     dp = DeliberativePlanner(
         static_map,

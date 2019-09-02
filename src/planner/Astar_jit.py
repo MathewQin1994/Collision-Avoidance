@@ -17,7 +17,7 @@ gamma = 0.01
 C_sigma = 0.25
 C_colrges=5
 dimension=2
-# {'None':0,'cross from left':1,'take over':2,'cross from right':3,'head on':4}
+# {'None':1,'cross from left':0,'take over':2,'cross from right':3,'head on':4}
 
 
 class Node:
@@ -117,9 +117,9 @@ class DeliberativePlanner:
         self.tmax = self.dmax / self.default_speed
         self.control_primitives = load_control_primitives(primitive_file_path)
         self.do_tra = np.zeros((0, 0, 5))
-        self.local_radius = 80
+        self.local_radius = 100
         self.tcpa_min = 50
-        self.dcpa_min = 20
+        self.dcpa_min = 50
         self.collision_risk_ob = np.zeros((0, 3), dtype=np.int)
         # self.local_range_ob=[]
         logging.info('resolution_pos:{},resolution_time:{},e:{},default_speed:{},local_radius:{},tcpa_min:{},dcpa_min:{}'
@@ -145,8 +145,7 @@ class DeliberativePlanner:
             current_pos = np.array(sc.state[0:2])
             current_time = sc.state[4]
             current_speed = sc.state[3]
-            if self.do_tra.shape[0] > 0 and self.do_tra.shape[1]>current_time:
-                self.evaluate_encounter(sc)
+            self.evaluate_encounter(sc)
             # print(self.collision_risk_ob)
             evaluate_node += 1
             for ucd in self.control_primitives[current_speed].items():
@@ -167,7 +166,7 @@ class DeliberativePlanner:
                 if s1_key not in self.closelist:
                     g, Ps = cost_to_come(sc.state, s1_state, ucd[1], sc.ps, sc.g, self.map.map, self.map.offset, self.map.resolution,
                                              self.resolution_time, self.tmax, self.dmax, self.do_tra, self.collision_risk_ob)
-                    # print('cost to come',g)
+                    # print('Ps',Ps)
                     if Ps < 0.2:
                         continue
                     h = self.cost_to_go(s1_state, sG)
@@ -319,30 +318,32 @@ class DeliberativePlanner:
         return np.array(state_all)
 
     def evaluate_encounter(self, sc):
-        pos = np.array(sc.state[:2])
-        yaw, u, t = sc.state[2:]
-        t = int(t)
-        dpos = self.do_tra[:, t, 0:2] - pos
-        local_consider_ids = [
-            i for i, value in enumerate(dpos) if np.inner(
-                value, value) < self.local_radius**2]
-        self.collision_risk_ob = np.zeros(
-            (len(local_consider_ids), 3), dtype=np.int)
-        for i, id in enumerate(local_consider_ids):
-            tcpa, dcpa = get_cpa(sc.state, self.do_tra[id, t])
-            encounter_type, times = 0, 0
-            if tcpa > 0 and tcpa < self.tcpa_min and dcpa < self.dcpa_min:
-                encounter_type = colrges_encounter_type(
-                    sc.state, self.do_tra[id, t])
-            if sc.father:
-                id_father = np.where(sc.father.encounter_type[:, 0] == id)[0]
-                if len(id_father) > 0:
-                    id_father = id_father[0]
-                    if sc.father.encounter_type[id_father, 2] < 5 and sc.father.encounter_type[id_father, 1] > encounter_type:
-                        encounter_type = sc.father.encounter_type[id_father, 1]
-                        times = sc.father.encounter_type[id_father, 2] + 1
+        t = int(sc.state[4])
+        if self.do_tra.shape[0] > 0 and self.do_tra.shape[1] > t:
+            pos = np.array(sc.state[:2])
+            dpos = self.do_tra[:, t, 0:2] - pos
+            local_consider_ids = [
+                i for i, value in enumerate(dpos) if np.inner(
+                    value, value) < self.local_radius**2]
+            self.collision_risk_ob = np.zeros(
+                (len(local_consider_ids), 3), dtype=np.int)
+            for i, id in enumerate(local_consider_ids):
+                tcpa, dcpa = get_cpa(sc.state, self.do_tra[id, t])
+                encounter_type, times = 0, 0
+                if tcpa > 0 and tcpa < self.tcpa_min and dcpa < self.dcpa_min:
+                    encounter_type = colrges_encounter_type(
+                        sc.state, self.do_tra[id, t])
+                if sc.father:
+                    id_father = np.where(sc.father.encounter_type[:, 0] == id)[0]
+                    if len(id_father) > 0:
+                        id_father = id_father[0]
+                        if sc.father.encounter_type[id_father, 2] < 5 and sc.father.encounter_type[id_father, 1] > encounter_type:
+                            encounter_type = sc.father.encounter_type[id_father, 1]
+                            times = sc.father.encounter_type[id_father, 2] + 1
                 self.collision_risk_ob[i] = [id, encounter_type, times]
-        sc.encounter_type = self.collision_risk_ob
+            sc.encounter_type = self.collision_risk_ob
+        else:
+            self.collision_risk_ob = np.zeros((0, 3), dtype=np.int)
 
 
 def load_control_primitives(file_path):
@@ -416,16 +417,16 @@ def colrges_encounter_type(s_usv, s_ob):
             s_ob[0]) -
         s_ob[2])
     alpha_h = yawRange(s_usv[2] - s_ob[2])
-    if abs(alpha_b) <= pi / 12 and abs(alpha_h) >= 3 * pi / 4:
+    if abs(alpha_b) <= pi / 6 and abs(alpha_h) >= 3 * pi / 4:
         encounter_type = 4
-    elif alpha_b > pi / 12 and alpha_b < 3 * pi / 4 and alpha_h > -11 * pi / 12 and alpha_h < -pi / 4:
-        encounter_type = 1
-    elif alpha_b > -3 * pi / 4 and alpha_b < -pi / 12 and alpha_h > pi / 4 and alpha_h < 11 * pi / 12:
+    elif alpha_b > pi / 6 and alpha_b < 3 * pi / 4 and alpha_h > -11 * pi / 12 and alpha_h < -pi / 4:
+        encounter_type = 0
+    elif alpha_b > -3 * pi / 4 and alpha_b < -pi / 6 and alpha_h > pi / 4 and alpha_h < 11 * pi / 12:
         encounter_type = 3
     elif abs(alpha_b) >= 3 * pi / 4 and abs(alpha_h) <= pi / 4:
         encounter_type = 2
     else:
-        encounter_type = 0
+        encounter_type = 1
     return encounter_type
 
 # @jit(nopython=True)
@@ -496,7 +497,7 @@ def evaluate_primitive(
                     collision_risk_ob[:, 0], collision_risk_ob[:, 1]):
                 colrges_break += colrges_cost(
                     primitives[i], do_tra[id, t], encounter_type)
-                if encounter_type != 1:
+                if encounter_type != 0:
                     # if encounter_type == 4:
                     #     pos_do = do_tra[id, t, 0:2] + 5 * np.array(
                     #         [-sin(do_tra[id, t, 2]), cos(do_tra[id, t, 2])])

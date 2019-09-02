@@ -26,6 +26,13 @@ class Map:
         self.offset=offset
         self.map=np.zeros(size,dtype=np.int8)
 
+    def expand(self,width):
+        map=self.map.copy()
+        width=width//self.resolution
+        for i in range(width,map.shape[0]-width):
+            for j in range(width,map.shape[1]-width):
+                if map[i,j]==1:
+                    self.map[i-width:i+width+1,j-width:j+width+1]=1
 
 class DynamicObstacle:
     def __init__(self,radius,s0):
@@ -44,19 +51,20 @@ def generate_do_trajectory(x0,y0,yaw,u,t):
 
 
 if __name__=="__main__":
-    map_size=(400,400)
-    # rectangle_static_obstacles=((20,20,10,30),(50,20,30,10),(50,50,30,10))
+    map_size=(100,100)
+    rectangle_static_obstacles=((20,20,10,30),(50,20,30,10),(50,50,30,10))
     # rectangle_static_obstacles = ((20, 50, 40, 10), (50, 20, 10, 30))
-    rectangle_static_obstacles=((90,150,110,50),(250,150,100,50),(150,250,100,100))
+    # rectangle_static_obstacles=((90,150,110,50),(250,150,100,50),(150,250,100,100))
     map=Map()
     map.new_map(map_size,1,offset=(0,0))
+
     fig=plt.gca()
     fig.axis([0,map_size[0],0,map_size[1]])
     for ob in rectangle_static_obstacles:
         map.add_static_obstacle(type="rectangle",config=ob)
         rect = patches.Rectangle((ob[0],ob[1]), ob[2], ob[3], color='y')
         fig.add_patch(rect)
-
+    map.expand(2)
     plt.show()
 
 

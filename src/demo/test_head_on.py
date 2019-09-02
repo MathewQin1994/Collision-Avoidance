@@ -26,8 +26,8 @@ def test_head_on():
     fig.axis([0, map_size[0], 0, map_size[1]])
     fig.set_xlabel('E/m')
     fig.set_ylabel('N/m')
-    s0 = tuple(np.array((10, 48, 0, 0.8, 10), dtype=np.float64))
-    sG = tuple(np.array((95, 48, pi, 0.8, 0), dtype=np.float64))
+    s0 = tuple(np.array((10, 48, -0.4, 0.8, 10), dtype=np.float64))
+    sG = tuple(np.array((95, 46, pi, 0.8, 0), dtype=np.float64))
     fig.plot(sG[1], sG[0], "ob", markersize=5)
 
     # 静态障碍物
