@@ -348,7 +348,7 @@ class DeliberativePlanner:
 
 def load_control_primitives(file_path):
     print("load control primitives from {}".format(file_path))
-    return np.load(file_path).item()
+    return np.load(file_path,allow_pickle=True).item()
 
 
 def plot_circle(c, r, fig):

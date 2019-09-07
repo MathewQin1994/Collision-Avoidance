@@ -1,3 +1,6 @@
+# -*- coding:UTF-8 -*-
+import sys
+sys.path.append("../..")
 from src.planner.Astar_jit import DeliberativePlanner
 from numpy import pi
 from src.map.staticmap import Map, generate_do_trajectory

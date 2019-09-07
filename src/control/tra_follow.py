@@ -22,12 +22,15 @@ def state_update(s,n1,n2):
     u1=u+ax*dt+0.01*np.random.randn()
     v1=v+ay*dt+0.01*np.random.randn()
     r1=r+ar*dt+0.005*np.random.randn()
-    # u1=u+ax*dt
-    # v1=v+ay*dt
-    # r1=r+ar*dt
+    u1=u+ax*dt
+    v1=v+ay*dt
+    r1=r+ar*dt
     x1=x+(u*cos(yaw)-v*sin(yaw))*dt+0.01*np.random.randn()
     y1=y+(u*sin(yaw)+v*cos(yaw))*dt+0.01*np.random.randn()
     yaw1=yaw+r*dt+0.01*np.random.randn()
+    x1=x+(u*cos(yaw)-v*sin(yaw))*dt
+    y1=y+(u*sin(yaw)+v*cos(yaw))*dt
+    yaw1=yaw+r*dt
     return (u1,v1,r1,x1,y1,yaw1)
 
 def yawRange(x):
@@ -58,7 +61,7 @@ def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False)
         a3=fig.add_subplot(2,2,3)
         a3.set_xlabel('t/s')
         a3.set_ylabel('u/m*s-1')
-    i=1
+    i=0
     l=0
     while True:
         #s=(u,v,r,x,y,yaw)
@@ -90,7 +93,7 @@ def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False)
             a3.plot(i*dt,s[0],'ok',markersize=2)
             a3.plot([i*dt,(i+1)*dt],[target_speed,target_speed],"-r")
             plt.pause(0.0001)
-        if i >= action_time//dt:
+        if i >= action_time/dt:
             break
         i+=1
     if plot:
@@ -110,7 +113,7 @@ def get_all_control_primitives(save=True):
         control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
 
     action_time = 6
-    yaw_set = np.array([-pi/3,-pi / 6, 0,pi / 6, pi / 3], dtype=np.float64)
+    yaw_set = np.array([-pi/3,-pi / 6,pi / 6, pi / 3], dtype=np.float64)
     for yaw in yaw_set:
         key = (action_time, np.int(np.round(yaw * 180 / pi)))
         control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
@@ -123,7 +126,7 @@ def get_all_control_primitives(save=True):
         control_primitives[0.0][key] = np.array(
             control_action_primitives((0.0, 0, 0, 0, 0, 0), u, yaw, action_time, plot=False), dtype=np.float64)
     if save:
-        np.save('control_primitives{}.npy'.format(u),control_primitives)
+        np.save('control_primitives.npy'.format(u),control_primitives)
     return control_primitives
 
 def control_primitives_visual(control_primitives):
@@ -229,11 +232,13 @@ if __name__=="__main__":
     # action_time=10
     # control_action_primitives(s0, target_speed, target_yaw, action_time, plot=True)
 
-    # control_primitives=np.load('../primitive/control_primitives.npy').item()
-    # control_primitives_visual(control_primitives)
+    control_primitives=get_all_control_primitives(save=True)
+    # control_primitives=np.load('control_primitives.npy').item()
+    control_primitives_visual(control_primitives)
 
-    fig = plt.gca()
-    fig.axis("equal")
-    control_primitives=np.load('../primitive/control_primitives.npy').item()
-    target_points=generate_target_points(s0,control_primitives,10,fig)
-    trajectory_following(s0, target_points, fig)
+
+    # fig = plt.gca()
+    # fig.axis("equal")
+    # control_primitives=np.load('../primitive/control_primitives.npy').item()
+    # target_points=generate_target_points(s0,control_primitives,10,fig)
+    # trajectory_following(s0, target_points, fig)

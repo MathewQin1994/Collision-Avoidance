@@ -123,3 +123,4 @@ dmypy.json
 .pyre
 .idea/
 case1/
+.DS_Store
