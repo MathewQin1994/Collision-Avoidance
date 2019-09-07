@@ -232,13 +232,13 @@ if __name__=="__main__":
     # action_time=10
     # control_action_primitives(s0, target_speed, target_yaw, action_time, plot=True)
 
-    control_primitives=get_all_control_primitives(save=True)
-    # control_primitives=np.load('control_primitives.npy').item()
-    control_primitives_visual(control_primitives)
+    # control_primitives=get_all_control_primitives(save=True)
+    # # control_primitives=np.load('control_primitives.npy').item()
+    # control_primitives_visual(control_primitives)
 
 
-    # fig = plt.gca()
-    # fig.axis("equal")
-    # control_primitives=np.load('../primitive/control_primitives.npy').item()
-    # target_points=generate_target_points(s0,control_primitives,10,fig)
-    # trajectory_following(s0, target_points, fig)
+    fig = plt.gca()
+    fig.axis("equal")
+    control_primitives=np.load('../primitive/control_primitives.npy',allow_pickle=True).item()
+    target_points=generate_target_points(s0,control_primitives,10,fig)
+    trajectory_following(s0, target_points, fig)
