@@ -61,8 +61,8 @@ if __name__=="__main__":
 
     do_s0['1']=(86, 94, 0.86, 0.8, 0)
     do_goal['1'] = (183, 213)
-    do_s0['2']=(110, 95, 0.86, 0.8, 0)
-    do_goal['2'] = (168, 222)
+    # do_s0['2']=(113, 95, 0.86, 0.8, 0)
+    # do_goal['2'] = (170, 222)
 
     for key in do_s0:
         do_dp[key] = DeliberativePlanner(

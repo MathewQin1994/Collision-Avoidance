@@ -11,9 +11,8 @@ logging.basicConfig(format=FORMAT, level=logging.INFO)
 Wn = 1000
 Wc = 0.5
 Cg_max = 1000
-Ce = 500
+Ce = 1000
 gamma = 0.01
-# gamma=0
 C_sigma = 0.25
 C_colrges=5
 dimension=2
@@ -130,6 +129,7 @@ class DeliberativePlanner:
         self.do_tra = do_tra
 
     def start(self, s0, sG, fig=None):
+
         # logging.info('start')
         evaluate_node = 0
         s_node = Node(s0, self.state2key(s0), 0, 0, 1)
@@ -144,7 +144,7 @@ class DeliberativePlanner:
             current_yaw = sc.state[2]
             current_pos = np.array(sc.state[0:2])
             current_time = sc.state[4]
-            current_speed = sc.state[3]
+            current_speed = round(sc.state[3]/ self.default_speed) * self.default_speed
             self.evaluate_encounter(sc)
             # print(self.collision_risk_ob)
             evaluate_node += 1
