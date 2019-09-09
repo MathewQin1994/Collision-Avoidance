@@ -1,3 +1,6 @@
+# -*- coding:UTF-8 -*-
+import sys
+sys.path.append("../..")
 import numpy as np
 from numpy import sin,cos,pi,ceil,tan
 import matplotlib.pyplot as plt
@@ -22,15 +25,15 @@ def state_update(s,n1,n2):
     u1=u+ax*dt+0.01*np.random.randn()
     v1=v+ay*dt+0.01*np.random.randn()
     r1=r+ar*dt+0.005*np.random.randn()
-    u1=u+ax*dt
-    v1=v+ay*dt
-    r1=r+ar*dt
+    # u1=u+ax*dt
+    # v1=v+ay*dt
+    # r1=r+ar*dt
     x1=x+(u*cos(yaw)-v*sin(yaw))*dt+0.01*np.random.randn()
     y1=y+(u*sin(yaw)+v*cos(yaw))*dt+0.01*np.random.randn()
     yaw1=yaw+r*dt+0.01*np.random.randn()
-    x1=x+(u*cos(yaw)-v*sin(yaw))*dt
-    y1=y+(u*sin(yaw)+v*cos(yaw))*dt
-    yaw1=yaw+r*dt
+    # x1=x+(u*cos(yaw)-v*sin(yaw))*dt
+    # y1=y+(u*sin(yaw)+v*cos(yaw))*dt
+    # yaw1=yaw+r*dt
     return (u1,v1,r1,x1,y1,yaw1)
 
 def yawRange(x):
