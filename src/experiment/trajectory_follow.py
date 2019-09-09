@@ -1,3 +1,6 @@
+# -*- coding:UTF-8 -*-
+import sys
+sys.path.append("../..")
 import numpy as np
 from numpy import sin,cos,pi,ceil,tan
 from src.tools.msgdev import PeriodTimer,MsgDevice
