@@ -9,17 +9,17 @@
 重规划频率为0.1Hz；
 
 case1：不考虑COLREGs规则的全局规划
-![gif](https://github.com/MathewQin1994/Collision-Avoidance/tree/master/gif/case2.1.gif)
+![gif](https://github.com/MathewQin1994/Collision-Avoidance/blob/master/gif/case2.1.gif)
 
 case2：考虑COLREGs规则的全局规划
-![gif](https://github.com/MathewQin1994/Collision-Avoidance/tree/master/gif/case2.2.gif)
+![gif](https://github.com/MathewQin1994/Collision-Avoidance/blob/master/gif/case2.2.gif)
 
 case3：考虑COLREGs规则的多船复杂会遇情况的全局规划
-![gif](https://github.com/MathewQin1994/Collision-Avoidance/tree/master/gif/case1.gif)
+![gif](https://github.com/MathewQin1994/Collision-Avoidance/blob/master/gif/case1.gif)
 
 case4：考虑COLREGs规则的多船复杂会遇情况的全局规划，相比case3加大了与他船碰撞cost
-![gif](https://github.com/MathewQin1994/Collision-Avoidance/tree/master/gif/case1.1.gif)
+![gif](https://github.com/MathewQin1994/Collision-Avoidance/blob/master/gif/case1.1.gif)
 
 2.trajectory following
 
-![gif](https://github.com/MathewQin1994/Collision-Avoidance/tree/master/gif/tra_follow.gif)
+![gif](https://github.com/MathewQin1994/Collision-Avoidance/blob/master/gif/tra_follow.gif)
