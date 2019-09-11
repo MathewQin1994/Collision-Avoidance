@@ -140,7 +140,7 @@ class DeliberativePlanner:
             sc = self.openlist.pop()
             self.closelist.add(sc.key)
             if (sc.state[0] - sG[0])**2 + (sc.state[1] - sG[1])**2 <= (self.resolution_pos * 5)**2:
-                return self.generate_total_trajectory1(sc)
+                return self.generate_total_trajectory2(sc)
             current_yaw = sc.state[2]
             current_pos = np.array(sc.state[0:2])
             current_time = sc.state[4]
@@ -303,6 +303,14 @@ class DeliberativePlanner:
 
         return trajectory
 
+    def generate_total_trajectory2(self, s):
+        trajectory = []
+        while s is not None:
+            trajectory.append(s.state)
+            s = s.father
+        trajectory.reverse()
+        return trajectory
+
     def compute_trajectory(self, s_state, s1_state):
         # ucd=self.control_primitives[s_state[3]][(int(s1_state[4]-s_state[4]),"{:.2f}".format(yawRange(s1_state[2]-s_state[2])))]
         ucd = self.control_primitives[s_state[3]][(int(
@@ -420,13 +428,13 @@ def colrges_encounter_type(s_usv, s_ob):
     if abs(alpha_b) <= pi / 6 and abs(alpha_h) >= 3 * pi / 4:
         encounter_type = 4
     elif alpha_b > pi / 6 and alpha_b < 3 * pi / 4 and alpha_h > -11 * pi / 12 and alpha_h < -pi / 4:
-        encounter_type = 0
+        encounter_type = -1
     elif alpha_b > -3 * pi / 4 and alpha_b < -pi / 6 and alpha_h > pi / 4 and alpha_h < 11 * pi / 12:
         encounter_type = 3
     elif abs(alpha_b) >= 3 * pi / 4 and abs(alpha_h) <= pi / 4:
         encounter_type = 2
     else:
-        encounter_type = 1
+        encounter_type = 0
     return encounter_type
 
 # @jit(nopython=True)
@@ -497,7 +505,7 @@ def evaluate_primitive(
                     collision_risk_ob[:, 0], collision_risk_ob[:, 1]):
                 colrges_break += colrges_cost(
                     primitives[i], do_tra[id, t], encounter_type)
-                if encounter_type != 0:
+                if encounter_type != -1:
                     # if encounter_type == 4:
                     #     pos_do = do_tra[id, t, 0:2] + 5 * np.array(
                     #         [-sin(do_tra[id, t, 2]), cos(do_tra[id, t, 2])])

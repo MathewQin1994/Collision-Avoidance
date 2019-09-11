@@ -229,6 +229,6 @@ def control_primitives_visual(control_primitives):
 if __name__=="__main__":
     # s0=(0.8,0,0,0,0,0)
     # control_action_primitives(s0, 0.8, pi/3,6, plot=True, STOP=True)
-    control_primitives=get_all_control_primitives(save=True)
+    control_primitives=get_all_control_primitives(save=False)
     # control_primitives=np.load('control_primitives.npy').item()
     control_primitives_visual(control_primitives)

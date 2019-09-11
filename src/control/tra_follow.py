@@ -22,18 +22,18 @@ def acceleration(u,v,r,n1,n2):
 def state_update(s,n1,n2):
     u, v, r, x, y, yaw=s
     ax,ay,ar=acceleration(u,v,r,n1,n2)
-    u1=u+ax*dt+0.01*np.random.randn()
-    v1=v+ay*dt+0.01*np.random.randn()
-    r1=r+ar*dt+0.005*np.random.randn()
-    # u1=u+ax*dt
-    # v1=v+ay*dt
-    # r1=r+ar*dt
-    x1=x+(u*cos(yaw)-v*sin(yaw))*dt+0.01*np.random.randn()
-    y1=y+(u*sin(yaw)+v*cos(yaw))*dt+0.01*np.random.randn()
-    yaw1=yaw+r*dt+0.01*np.random.randn()
-    # x1=x+(u*cos(yaw)-v*sin(yaw))*dt
-    # y1=y+(u*sin(yaw)+v*cos(yaw))*dt
-    # yaw1=yaw+r*dt
+    # u1=u+ax*dt+0.01*np.random.randn()
+    # v1=v+ay*dt+0.01*np.random.randn()
+    # r1=r+ar*dt+0.005*np.random.randn()
+    u1=u+ax*dt
+    v1=v+ay*dt
+    r1=r+ar*dt
+    # x1=x+(u*cos(yaw)-v*sin(yaw))*dt+0.01*np.random.randn()
+    # y1=y+(u*sin(yaw)+v*cos(yaw))*dt+0.01*np.random.randn()
+    # yaw1=yaw+r*dt+0.01*np.random.randn()
+    x1=x+(u*cos(yaw)-v*sin(yaw))*dt
+    y1=y+(u*sin(yaw)+v*cos(yaw))*dt
+    yaw1=yaw+r*dt
     return (u1,v1,r1,x1,y1,yaw1)
 
 def yawRange(x):
@@ -49,7 +49,7 @@ def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False)
     yaw_control=PIDcontroller(800/60,3/60,10/60,dt)
     speed_control=PIDcontroller(3200/60,3/60,10/60,dt)
     propeller_speed = target_speed * 19.56
-    d=3/pi*target_yaw+2
+    d=3/pi*abs(target_yaw)+2
     delta=10
     if plot:
         fig=plt.figure()
@@ -68,7 +68,7 @@ def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False)
     l=0
     while True:
         #s=(u,v,r,x,y,yaw)
-        e=s[4]*cos(target_yaw)-(s[3]-d)*sin(target_yaw)
+        e=abs(cos(target_yaw))*(s[4]-(s[3]-d)*tan(target_yaw))
         alpha=np.arctan2(e,delta)
 
         d_pro=speed_control.update(target_speed-s[0])
@@ -86,7 +86,7 @@ def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False)
         # print(n1,n2)
         l +=s[0]*dt
         s=state_update(s,n1,n2)
-
+        # print(e,alpha,n1,n2)
         if i%10==0:
             primitives_state.append((s[3],s[4],s[5],s[0],i*dt,l))
         if plot:
@@ -235,13 +235,13 @@ if __name__=="__main__":
     # action_time=10
     # control_action_primitives(s0, target_speed, target_yaw, action_time, plot=True)
 
-    # control_primitives=get_all_control_primitives(save=True)
-    # # control_primitives=np.load('control_primitives.npy').item()
-    # control_primitives_visual(control_primitives)
+    control_primitives=get_all_control_primitives(save=True)
+    # control_primitives=np.load('control_primitives.npy').item()
+    control_primitives_visual(control_primitives)
 
 
-    fig = plt.gca()
-    fig.axis("equal")
-    control_primitives=np.load('../primitive/control_primitives.npy',allow_pickle=True).item()
-    target_points=generate_target_points(s0,control_primitives,10,fig)
-    trajectory_following(s0, target_points, fig)
+    # fig = plt.gca()
+    # fig.axis("equal")
+    # control_primitives=np.load('../primitive/control_primitives.npy',allow_pickle=True).item()
+    # target_points=generate_target_points(s0,control_primitives,10,fig)
+    # trajectory_following(s0, target_points, fig)

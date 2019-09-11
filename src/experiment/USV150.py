@@ -47,7 +47,7 @@ if __name__=='__main__':
         dev.sub_add_url('pro.right.speed')
         t=PeriodTimer(dt)
         t.start()
-        s=(0,0,0,0,0,0)
+        s=(0,0,0,174, 201, 0.86-pi)
         while True:
             with t:
                 n1 = dev.sub_get1('pro.left.speed')
@@ -57,7 +57,7 @@ if __name__=='__main__':
                 s[0] + 0.005 * np.random.randn(), s[1] + 0.005 * np.random.randn(), s[2] + 0.001 * np.random.randn(),
                 s[3] + 0.05 * np.random.randn(), s[4] + 0.05 * np.random.randn(), s[5] + 0.01 * np.random.randn())
                 dev.pub_set('USV150.state',s_ob)
-                print(n1,n2,s_ob)
+                print("left:{:.2f},right:{:.2f},u:{:.2f},v:{:.2f},r:{:.2f},x:{:.2f},y:{:.2f},yaw:{:.2f}".format(n1,n2,*s_ob))
     except (KeyboardInterrupt,Exception) as e:
         dev.close()
         raise
