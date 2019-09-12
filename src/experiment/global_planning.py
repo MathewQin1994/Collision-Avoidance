@@ -122,7 +122,7 @@ if __name__=='__main__':
                     do_tra = np.array(dev.sub_get('do_tra')).reshape((3, max_length, 5))
                     do_tra = do_tra[:do_num, :, int(start_time - do_tra[0, 0, -1]):]
                     dp.set_dynamic_obstacle(do_tra)
-                target_points = np.array(dp.start(s0, sg))
+                target_points = np.array(dp.start(s0, sg,tra_type='target_points'))
                 target_points[:, -1] = target_points[:, -1] + start_time
                 tra = np.zeros((0, 5))
                 for i in range(target_points.shape[0] - 1):

@@ -128,7 +128,7 @@ class DeliberativePlanner:
         self.do_config = do_config
         self.do_tra = do_tra
 
-    def start(self, s0, sG, fig=None):
+    def start(self, s0, sG, fig=None,tra_type='continue'):
 
         # logging.info('start')
         evaluate_node = 0
@@ -140,7 +140,10 @@ class DeliberativePlanner:
             sc = self.openlist.pop()
             self.closelist.add(sc.key)
             if (sc.state[0] - sG[0])**2 + (sc.state[1] - sG[1])**2 <= (self.resolution_pos * 5)**2:
-                return self.generate_total_trajectory2(sc)
+                if tra_type=='continue':
+                    return self.generate_total_trajectory1(sc)
+                elif tra_type=='target_points':
+                    return self.generate_total_trajectory2(sc)
             current_yaw = sc.state[2]
             current_pos = np.array(sc.state[0:2])
             current_time = sc.state[4]

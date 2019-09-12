@@ -83,7 +83,7 @@ if __name__=="__main__":
         do_tra_true[key]=np.array(do_dp[key].start(do_s0[key],do_goal[key]))
 
 
-    simulation(s0, sG, dp, do_dp,fig,do_tra_true,do_goal,predict_time=10)
-    # simulation(s0, sG, dp, do_dp, fig)
-    # tra=dp.start(s0,sG)
+    # simulation(s0, sG, dp, do_dp,fig,do_tra_true,do_goal,predict_time=10)
+    simulation(s0, sG, dp, do_dp, fig)
+    tra=dp.start(s0,sG)
     plt.show()
