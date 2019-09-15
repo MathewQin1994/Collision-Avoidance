@@ -47,7 +47,7 @@ if __name__=='__main__':
         dev.sub_add_url('pro.right.speed')
         t=PeriodTimer(dt)
         t.start()
-        s=(0,0,0,174/2, 201/2, 0.86-pi)
+        s=(0,0,0,88, 103, 0.86-pi)
         while True:
             with t:
                 n1 = dev.sub_get1('pro.left.speed')

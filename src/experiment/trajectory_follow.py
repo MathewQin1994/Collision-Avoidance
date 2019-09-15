@@ -83,12 +83,12 @@ if __name__=='__main__':
         dev.sub_add_url('USV150.state',default_values=(0,0,0,0,0,0))
         dev.sub_add_url('idx-length',default_values=[0,0])
         dev.sub_add_url('target_points', default_values=[0]*(max_length*5))
-        # print(target_points)
         trajectory_following(dev)
     except (KeyboardInterrupt,Exception) as e:
+        dev.pub_set1('pro.left.speed', 0)
+        dev.pub_set1('pro.right.speed', 0)
+        time.sleep(0.5)
         dev.close()
         raise
-    else:
-        dev.close()
     finally:
         dev.close()

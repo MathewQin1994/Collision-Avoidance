@@ -8,7 +8,7 @@ from src.planner.Astar_jit import DeliberativePlanner
 from src.map.staticmap import Map
 import time
 
-dT=6
+dT=12
 max_length=200
 control_primitives = np.load('../primitive/control_primitives.npy').item()
 sg = tuple(np.array((41/2, 71/2, pi, 0.8, 0), dtype=np.float64))
@@ -93,59 +93,13 @@ def initialize():
         default_speed,
         primitive_file_path,
         e)
-
-    # 他船参数和规划器
-    do_s0=dict()
-    do_dp = dict()
-    do_tra_true = dict()
-    do_goal=dict()
-
-    # do_s0['1']=(190/2, 2/2, 1.57, 0.8, 0)
-    # do_goal['1'] = (53/2, 121/2)
-    # do_s0['2']=(35/2, 114/2, 0, 0.8, 0)
-    # do_goal['2'] = (160/2, 177/2)
-    do_s0['3']=(92, 50, pi, 0.8, time.time())
-    do_goal['3'] = (75, 106)
-    # do_s0['4']=(120/2, 90/2, pi/2, 0.4, 0)
-    # do_goal['4'] = (156/2, 173/2)
-
-    for key in do_s0:
-        do_dp[key] = DeliberativePlanner(
-            static_map,
-            resolution_pos,
-            resolution_time,
-            do_s0[key][3],
-            '../primitive/control_primitives{}.npy'.format(do_s0[key][3]),
-            e)
-        do_tra_true[key]=np.array(do_dp[key].start(do_s0[key],do_goal[key]))
     time.sleep(0.5)
-    return dev,t,dp,do_tra_true
-
-def get_virtual_do_tra(do_tra_true,start_time):
-    do_tra=[]
-    for key in do_tra_true:
-        idx=int(start_time - do_tra_true[key][0, -1])
-        if idx<do_tra_true[key].shape[0]:
-            tra=do_tra_true[key][idx:,:]
-        else:
-            tra=do_tra_true[key][-1:,:]
-        if tra.shape[0] > 200:
-            tra = tra[:200, :]
-        elif tra.shape[0] < 200:
-            add = np.zeros((200 - tra.shape[0], 5))
-            add[:, 0] = tra[-1, 0]
-            add[:, 1] = tra[-1, 1]
-            add[:, 2] = tra[-1, 2]
-            add[:, 4] = np.linspace(tra[-1,-1]+1,tra[-1,-1]+200 - tra.shape[0],200 - tra.shape[0])
-            tra = np.vstack((tra, add))
-        do_tra.append(tra)
-    do_tra=np.array(do_tra)
-    return do_tra
+    return dev,t,dp
 
 
 if __name__=='__main__':
     try:
-        dev,t,dp,do_tra_true=initialize()
+        dev,t,dp=initialize()
         target_points=[]
         t.start()
         while True:
@@ -158,13 +112,14 @@ if __name__=='__main__':
                     s0 = (state[3], state[4], state[5], state[0], 0)
                 else:
                     dev.pub_set('idx-length',[t.i-1,target_points.shape[0]])
-                    print(target_points[:,0:2])
+                    # print(target_points)
                     ta1=target_points.flatten().tolist()
                     ta1.extend([0] * (max_length * 5 - len(ta1)))
                     dev.pub_set('target_points',ta1)
                     s0=(tra[dT,0],tra[dT,1],tra[dT,2],tra[dT,3],0)
+                    print(state[3:],tra[0,:3])
 
-                a=get_virtual_do_tra(do_tra_true,start_time)
+                # a=get_virtual_do_tra(do_tra_true,start_time)
                 do_num = int(dev.sub_get1('do_num'))
                 if do_num > 0:
                     do_tra = np.array(dev.sub_get('do_tra')).reshape((3, max_length, 5))
@@ -172,7 +127,7 @@ if __name__=='__main__':
                     dp.set_dynamic_obstacle(do_tra)
                 target_points = np.array(dp.start(s0, sg,tra_type='target_points'))
                 target_points[:, -1] = target_points[:, -1] + start_time
-                tra = np.zeros((0, 5))
+                tra = target_points[0:1,:]
                 for i in range(target_points.shape[0] - 1):
                     tra = np.vstack((tra, compute_trajectory(target_points[i, :], target_points[i + 1, :])))
 

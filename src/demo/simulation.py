@@ -81,6 +81,7 @@ def simulation(s0,sG,dp,do_dp,fig,do_tra_true=dict(),do_goal=dict(),predict_time
 def simulation1(s0,sG,dp,fig,do_tra_true=dict(),predict_time=6):
     tra = None
     time_stamp = 0
+    si=0
     while True:
         do_tra=get_virtual_do_tra(do_tra_true,time_stamp)
 
@@ -92,7 +93,10 @@ def simulation1(s0,sG,dp,fig,do_tra_true=dict(),predict_time=6):
                 for key in do_tra_true:
                     fig.plot(do_tra_true[key][time_stamp:time_stamp + predict_time, 1],do_tra_true[key][time_stamp:time_stamp + predict_time, 0], 'r')
                 s0 = (tra[predict_time, 0], tra[predict_time, 1], tra[predict_time, 2], round(tra[predict_time, 3] / 0.8) * 0.8, 0)
-                tra = np.array(dp.start(s0, sG))
+                if si==-7:
+                    tra = np.array(dp.start(s0, sG,fig))
+                else:
+                    tra = np.array(dp.start(s0, sG))
             else:
                 break
         else:
@@ -113,6 +117,7 @@ def simulation1(s0,sG,dp,fig,do_tra_true=dict(),predict_time=6):
             plot_lines.append(fig.plot(do_tra[i,predict_time:, 1], do_tra[i,predict_time:, 0], "--r"))
 
         plt.pause(0.1)
+        si+=1
 
 if __name__=="__main__":
     # 参数

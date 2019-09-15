@@ -8,6 +8,8 @@ from src.planner.Astar_jit import DeliberativePlanner
 from src.map.staticmap import Map
 import time
 
+max_length=200
+dt=1
 def get_virtual_do_tra(do_tra_true,start_time):
     do_tra=[]
     for key in do_tra_true:
@@ -42,8 +44,17 @@ def do_tra_predict(s0,target_points):
     do_tra=lines(s0,target_points[0])
     for j in range(len(target_points)-1):
         do_tra=np.vstack((do_tra,lines(target_points[j],target_points[j+1])))
-    do_tra[:,-1]=list(range(do_tra.shape[0]))
+    do_tra[:,-1]=np.linspace(time.time()+ 1, time.time() + do_tra.shape[0],do_tra.shape[0])
     return do_tra
+
+def pub_do_tra(dev,do_tra):
+
+    do1 = do_tra.flatten().tolist()
+    do1.extend([0] * (max_length * (5*3) - len(do1)))
+    dev.pub_set1('do_num', do_tra.shape[0])
+    dev.pub_set('do_tra',do1)
+    for i in range(do_tra.shape[0]):
+        print('do1,x:{},y:{}'.format(do_tra[i,0,0],do_tra[i,0,1]))
 
 
 # 他船参数和规划器
@@ -65,4 +76,26 @@ for key in do_s0:
     do_tra=do_tra_predict(do_s0['2'],do_goal['2'])
     do_tra_true[key] = do_tra_predict(do_s0[key],do_goal[key])
 
-do_tra=get_virtual_do_tra(do_tra_true,30)
+
+
+
+if __name__=='__main__':
+    try:
+        dev=MsgDevice()
+        dev.open()
+        dev.pub_bind('tcp://0.0.0.0:55009')
+        # print(target_points)
+        t = PeriodTimer(dt)
+        t.start()
+        while True:
+            with t:
+                start_time=time.time()
+                do_tra = get_virtual_do_tra(do_tra_true, start_time)
+                pub_do_tra(dev,do_tra)
+    except (KeyboardInterrupt,Exception) as e:
+        dev.pub_set1('do_num', 0)
+        time.sleep(0.5)
+        dev.close()
+        raise
+    finally:
+        dev.close()

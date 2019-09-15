@@ -12,7 +12,7 @@ Wn = 1000
 Wc = 0.5
 Cg_max = 1000
 Ce = 500
-gamma = 0.01
+gamma = 0.0
 C_sigma = 0.25
 C_colrges=0.1
 dimension=3
@@ -116,9 +116,9 @@ class DeliberativePlanner:
         self.tmax = self.dmax / self.default_speed
         self.control_primitives = load_control_primitives(primitive_file_path)
         self.do_tra = np.zeros((0, 0, 5))
-        self.local_radius = 50
-        self.tcpa_min = 25
-        self.dcpa_min = 25
+        self.local_radius = 60
+        self.tcpa_min = 30
+        self.dcpa_min = 30
         self.collision_risk_ob = np.zeros((0, 3), dtype=np.int)
         # self.local_range_ob=[]
         logging.info('resolution_pos:{},resolution_time:{},e:{},default_speed:{},local_radius:{},tcpa_min:{},dcpa_min:{}'
@@ -171,6 +171,7 @@ class DeliberativePlanner:
                 if s1_key not in self.closelist:
                     g, Ps = cost_to_come(sc.state, s1_state, ucd[1], sc.ps, sc.g, self.map.map, self.map.offset, self.map.resolution,
                                              self.resolution_time, self.tmax, self.dmax, self.do_tra, self.collision_risk_ob)
+                    # if Ps is np.nan:
                     # print('Ps',Ps)
                     if Ps < 0.2:
                         continue
@@ -416,27 +417,6 @@ def get_cpa(s1, s2):
     return tcpa, dcpa
 
 
-# @jit(nopython=True)
-# def colrges_encounter_type(s_usv, s_ob):
-#     alpha_b = yawRange(
-#         np.arctan2(
-#             s_usv[1] -
-#             s_ob[1],
-#             s_usv[0] -
-#             s_ob[0]) -
-#         s_ob[2])
-#     alpha_h = yawRange(s_usv[2] - s_ob[2])
-#     if abs(alpha_b) <= pi / 12 and abs(alpha_h) >= 11 * pi / 12:
-#         encounter_type = 4
-#     elif alpha_b > pi / 12 and alpha_b < 3 * pi / 4 and alpha_h > -11 * pi / 12 and alpha_h < -pi / 4:
-#         encounter_type = 1
-#     elif alpha_b > -3 * pi / 4 and alpha_b < -pi / 12 and alpha_h > pi / 4 and alpha_h < 11 * pi / 12:
-#         encounter_type = 3
-#     elif abs(alpha_b) >= 3 * pi / 4 and abs(alpha_h) <= pi / 4:
-#         encounter_type = 2
-#     else:
-#         encounter_type = 0
-#     return encounter_type
 @jit(nopython=True)
 def colrges_encounter_type(s_usv, s_ob):
     alpha_b = yawRange(
@@ -447,7 +427,7 @@ def colrges_encounter_type(s_usv, s_ob):
             s_ob[0]) -
         s_ob[2])
     alpha_h = yawRange(s_usv[2] - s_ob[2])
-    if abs(alpha_b) <= pi / 6 and abs(alpha_h) >= 3 * pi / 4:
+    if abs(alpha_b) <= pi / 6 and abs(alpha_h) >= 2 * pi / 3:
         encounter_type = 4
     elif alpha_b > pi / 6 and alpha_b < 3 * pi / 4 and alpha_h > -11 * pi / 12 and alpha_h < -pi / 4:
         encounter_type = -1
@@ -458,6 +438,28 @@ def colrges_encounter_type(s_usv, s_ob):
     else:
         encounter_type = 0
     return encounter_type
+
+# @jit(nopython=True)
+# def colrges_encounter_type(s_usv, s_ob):
+#     alpha_b = yawRange(
+#         np.arctan2(
+#             s_usv[1] -
+#             s_ob[1],
+#             s_usv[0] -
+#             s_ob[0]) -
+#         s_ob[2])
+#     alpha_h = yawRange(s_usv[2] - s_ob[2])
+#     if abs(alpha_b) <= pi / 6 and abs(alpha_h) >= 3 * pi / 4:
+#         encounter_type = 4
+#     elif alpha_b > pi / 6 and alpha_b < 3 * pi / 4 and alpha_h > -11 * pi / 12 and alpha_h < -pi / 4:
+#         encounter_type = -1
+#     elif alpha_b > -3 * pi / 4 and alpha_b < -pi / 6 and alpha_h > pi / 4 and alpha_h < 11 * pi / 12:
+#         encounter_type = 3
+#     elif abs(alpha_b) >= 3 * pi / 4 and abs(alpha_h) <= pi / 4:
+#         encounter_type = 2
+#     else:
+#         encounter_type = 0
+#     return encounter_type
 
 # @jit(nopython=True)
 # def extend_new_node_jit(s_state,keys,ucd,s_ps,s_g):
@@ -520,28 +522,31 @@ def evaluate_primitive(
         if p == 1.0:
             return 1.0, 0.0
         no_Pcsu_t = 1.0
-        if (i + 1) % (primitives.shape[0] // 2) == 0:
+        # if (i + 1) % (primitives.shape[0] // 1) == 0:
             # colrges_cost(primitives[i], np.array([10.0, 10.0, pi, 4.0]), 1)
             # collision_pro_cal(1001.0, C_sigma * t, 1000.0)
-            for id, encounter_type in zip(
-                    collision_risk_ob[:, 0], collision_risk_ob[:, 1]):
-                colrges_break += colrges_cost(
-                    primitives[i], do_tra[id, t], encounter_type)
-                if encounter_type != -1:
-                    # if encounter_type == 4:
-                    #     pos_do = do_tra[id, t, 0:2] + 5 * np.array(
-                    #         [-sin(do_tra[id, t, 2]), cos(do_tra[id, t, 2])])
-                    # elif encounter_type == 3:
-                    #     pos_do = do_tra[id, t, 0:2] + 5 * np.array(
-                    #         [cos(do_tra[id, t, 2]), sin(do_tra[id, t, 2])])
-                    # else:
-                    #     pos_do = do_tra[id, t, 0:2]
-                    pos_do = do_tra[id, t, 0:2]
-                    distance = np.sqrt(
-                        np.dot(pos_do - primitives[i, 0:2], pos_do - primitives[i, 0:2]))
-                    no_Pcsu_t *= (1 - collision_pro_cal(distance,
-                                                        C_sigma * t, 4))
-            no_Pcsu *= no_Pcsu_t
+        for id, encounter_type in zip(
+                collision_risk_ob[:, 0], collision_risk_ob[:, 1]):
+            colrges_break += colrges_cost(
+                primitives[i], do_tra[id, t], encounter_type)
+            if encounter_type != -1:
+                # if encounter_type == 4:
+                #     pos_do = do_tra[id, t, 0:2] + 5 * np.array(
+                #         [-sin(do_tra[id, t, 2]), cos(do_tra[id, t, 2])])
+                # elif encounter_type == 3:
+                #     pos_do = do_tra[id, t, 0:2] + 5 * np.array(
+                #         [cos(do_tra[id, t, 2]), sin(do_tra[id, t, 2])])
+                # else:
+                #     pos_do = do_tra[id, t, 0:2]
+                pos_do = do_tra[id, t, 0:2]
+                distance = np.sqrt(
+                    np.dot(pos_do - primitives[i, 0:2], pos_do - primitives[i, 0:2]))
+                if not collision_pro_cal(distance,C_sigma * t, 4) >-1:
+                    print(distance,C_sigma * t, 4)
+                no_Pcsu_t *= (1 - collision_pro_cal(distance,
+                                                    C_sigma * t, 4))
+        # no_Pcsu *= no_Pcsu_t
+        no_Pcsu = min(no_Pcsu_t,no_Pcsu)
     return (1 - no_Pcsu) * exp(-gamma * s_state[4]), colrges_break / 2
 
 
@@ -615,7 +620,7 @@ def collision_pro_cal(d, sigma2, r):
     else:
         step = (2 * d - 0.1) / 10
         step1 = (r - d) / 10
-        x = np.arange(d + r - 0.1, r - d, -step)
+        x = np.arange(d + r - 0.05, r - d, -step)
         x1 = np.arange(0, r - d, step1)
         s = np.sum(np.arccos((x ** 2 + d ** 2 - r ** 2) / 2 / x / d) * 2 * x * step / (2 * pi * sigma2) * exp(-1 / 2 * x ** 2 / sigma2))
         s1 = np.sum(1 / (2 * pi * sigma2) * exp(-1 / 2 * x1 ** 2 / sigma2) * 2 * pi * x1 * step1)

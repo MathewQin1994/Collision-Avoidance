@@ -41,12 +41,25 @@ def update_planning(dev,fig,plot_lines):
         idx_old = idx
         target_points = np.array(dev.sub_get('target_points')).reshape(max_length, 5)
         # print(target_points[:length,:])
-        tra=np.zeros((0,5))
-        for i in range(length-1):
-            tra=np.vstack((tra,compute_trajectory(target_points[i,:],target_points[i+1,:])))
+        # tra=np.zeros((0,5))
+        # for i in range(length-1):
+        #     tra=np.vstack((tra,compute_trajectory(target_points[i,:],target_points[i+1,:])))
         while len(plot_lines) > 0:
             fig.lines.remove(plot_lines.pop()[0])
-        plot_lines.append(fig.plot(tra[:, 1], tra[:, 0], '--b'))
+        # plot_lines.append(fig.plot(tra[:, 1], tra[:, 0], '--b'))
+        for i in range(target_points.shape[0]):
+            plot_lines.append(fig.plot(target_points[i,1], target_points[i,0], 'bo',markersize=2))
+
+def update_do_pre(dev,fig,plot_lines):
+    do_num = int(dev.sub_get1('do_num'))
+    if do_num > 0:
+        do_tra = np.array(dev.sub_get('do_tra')).reshape((3, max_length, 5))
+        do_tra = do_tra[:do_num, int(time.time() - do_tra[0, 0, -1]):, :]
+    while len(plot_lines)>0:
+        fig.lines.remove(plot_lines.pop()[0])
+    for i in range(do_num):
+        plot_lines.append(fig.plot(do_tra[i,:,1],do_tra[i,:,0],'r--'))
+        plot_lines.append(fig.plot(do_tra[i, 0, 1], do_tra[i, 0, 0], 'or',markersize=5))
 
 
 
@@ -75,11 +88,11 @@ if __name__=='__main__':
     try:
         # 地图、起点、目标
         static_map = Map()
-        static_map.load_map(np.loadtxt('../map/static_map1.txt', dtype=np.int8), 1)
-        s0 = tuple(np.array((174, 201, 0.86 - pi, 0.8, 10), dtype=np.float64))
-        # s0 = tuple(np.array((190, 1, 1.57, 0.8, 0), dtype=np.float64))
-        sG = tuple(np.array((41, 71, pi, 0.8, 0), dtype=np.float64))
-        # sG = tuple(np.array((55, 180, pi, 0.8, 0), dtype=np.float64))
+        static_map.load_map(np.loadtxt('../map/static_map1.txt', dtype=np.int8), 0.5)
+        # s0 = tuple(np.array((174, 201, 0.86 - pi, 0.8, 10), dtype=np.float64))
+        # # s0 = tuple(np.array((190, 1, 1.57, 0.8, 0), dtype=np.float64))
+        # sG = tuple(np.array((41, 71, pi, 0.8, 0), dtype=np.float64))
+        # # sG = tuple(np.array((55, 180, pi, 0.8, 0), dtype=np.float64))
 
         fig = plt.gca()
         extend = [
@@ -92,7 +105,7 @@ if __name__=='__main__':
             static_map.resolution +
             static_map.offset[1] - 1]
         mapplot = static_map.map.copy()
-        static_map.expand(2)
+        static_map.expand(1)
         for i in range(mapplot.shape[0]):
             mapplot[i, :] = mapplot[i, :][::-1]
         fig.imshow(mapplot.T, extent=extend)
@@ -103,19 +116,24 @@ if __name__=='__main__':
         dev.open()
         dev.sub_connect('tcp://127.0.0.1:55007')
         dev.sub_connect('tcp://127.0.0.1:55008')
+        dev.sub_connect('tcp://127.0.0.1:55009')
         dev.sub_add_url('USV150.state', default_values=(0, 0, 0, 0, 0, 0))
         dev.sub_add_url('idx-length', default_values=[0, 0])
         dev.sub_add_url('target_points', default_values=[0] * (max_length * 5))
+        dev.sub_add_url('do_tra', default_values=[0] * (max_length * 5 * 3))
+        dev.sub_add_url('do_num')
         time.sleep(0.5)
         t=PeriodTimer(1)
         t.start()
         plot_lines_state=[]
         plot_lines_tra=[]
+        plot_lines_do_tra = []
         while True:
             with t:
                 dev.sub_get('target_points')
                 update_state(dev,fig,plot_lines_state)
                 update_planning(dev, fig, plot_lines_tra)
+                update_do_pre(dev,fig,plot_lines_do_tra)
                 plt.pause(0.1)
 
     except (KeyboardInterrupt,Exception) as e:
