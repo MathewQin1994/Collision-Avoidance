@@ -64,7 +64,7 @@ def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False)
         a3=fig.add_subplot(2,2,3)
         a3.set_xlabel('t/s')
         a3.set_ylabel('u/m*s-1')
-    i=0
+    i=1
     l=0
     while True:
         #s=(u,v,r,x,y,yaw)
@@ -108,9 +108,10 @@ def get_all_control_primitives(save=True):
     # time_set=np.array([10,5],dtype=np.int)
     u=0.8
     control_primitives=dict()
-    action_time=10
+    action_time=6
     control_primitives[u]=dict()
     yaw_set = np.array([-pi / 4, -pi / 12, 0, pi / 12, pi / 4], dtype=np.float64)
+    # yaw_set = np.array([-pi / 4, 0, pi / 4], dtype=np.float64)
     for yaw in yaw_set:
         key=(action_time,np.int(np.round(yaw*180/pi)))
         control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
@@ -121,7 +122,7 @@ def get_all_control_primitives(save=True):
         key = (action_time, np.int(np.round(yaw * 180 / pi)))
         control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
 
-    action_time = 10
+    action_time = 6
     control_primitives[0.0] = dict()
     yaw_set = np.array([-pi / 4, -pi / 6, -pi / 12, 0, pi / 12, pi / 6, pi / 4], dtype=np.float64)
     for yaw in yaw_set:

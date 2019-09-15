@@ -8,10 +8,10 @@ from src.planner.Astar_jit import DeliberativePlanner
 from src.map.staticmap import Map
 import time
 
-dT=10
+dT=6
 max_length=200
 control_primitives = np.load('../primitive/control_primitives.npy').item()
-sg = tuple(np.array((41, 71, pi, 0.8, 0), dtype=np.float64))
+sg = tuple(np.array((41/2, 71/2, pi, 0.8, 0), dtype=np.float64))
 
 def yawRange(x):
     if x > pi:
@@ -77,8 +77,8 @@ def initialize():
 
     #地图
     static_map = Map()
-    static_map.load_map(np.loadtxt('../map/static_map1.txt', dtype=np.int8), 1)
-    static_map.expand(2)
+    static_map.load_map(np.loadtxt('../map/static_map1.txt', dtype=np.int8), resolution=0.5)
+    static_map.expand(1)
 
     #轨迹规划器
     resolution_time = 1
@@ -93,12 +93,59 @@ def initialize():
         default_speed,
         primitive_file_path,
         e)
+
+    # 他船参数和规划器
+    do_s0=dict()
+    do_dp = dict()
+    do_tra_true = dict()
+    do_goal=dict()
+
+    # do_s0['1']=(190/2, 2/2, 1.57, 0.8, 0)
+    # do_goal['1'] = (53/2, 121/2)
+    # do_s0['2']=(35/2, 114/2, 0, 0.8, 0)
+    # do_goal['2'] = (160/2, 177/2)
+    do_s0['3']=(92, 50, pi, 0.8, time.time())
+    do_goal['3'] = (75, 106)
+    # do_s0['4']=(120/2, 90/2, pi/2, 0.4, 0)
+    # do_goal['4'] = (156/2, 173/2)
+
+    for key in do_s0:
+        do_dp[key] = DeliberativePlanner(
+            static_map,
+            resolution_pos,
+            resolution_time,
+            do_s0[key][3],
+            '../primitive/control_primitives{}.npy'.format(do_s0[key][3]),
+            e)
+        do_tra_true[key]=np.array(do_dp[key].start(do_s0[key],do_goal[key]))
     time.sleep(0.5)
-    return dev,t,dp
+    return dev,t,dp,do_tra_true
+
+def get_virtual_do_tra(do_tra_true,start_time):
+    do_tra=[]
+    for key in do_tra_true:
+        idx=int(start_time - do_tra_true[key][0, -1])
+        if idx<do_tra_true[key].shape[0]:
+            tra=do_tra_true[key][idx:,:]
+        else:
+            tra=do_tra_true[key][-1:,:]
+        if tra.shape[0] > 200:
+            tra = tra[:200, :]
+        elif tra.shape[0] < 200:
+            add = np.zeros((200 - tra.shape[0], 5))
+            add[:, 0] = tra[-1, 0]
+            add[:, 1] = tra[-1, 1]
+            add[:, 2] = tra[-1, 2]
+            add[:, 4] = np.linspace(tra[-1,-1]+1,tra[-1,-1]+200 - tra.shape[0],200 - tra.shape[0])
+            tra = np.vstack((tra, add))
+        do_tra.append(tra)
+    do_tra=np.array(do_tra)
+    return do_tra
+
 
 if __name__=='__main__':
     try:
-        dev,t,dp=initialize()
+        dev,t,dp,do_tra_true=initialize()
         target_points=[]
         t.start()
         while True:
@@ -117,10 +164,11 @@ if __name__=='__main__':
                     dev.pub_set('target_points',ta1)
                     s0=(tra[dT,0],tra[dT,1],tra[dT,2],tra[dT,3],0)
 
+                a=get_virtual_do_tra(do_tra_true,start_time)
                 do_num = int(dev.sub_get1('do_num'))
                 if do_num > 0:
                     do_tra = np.array(dev.sub_get('do_tra')).reshape((3, max_length, 5))
-                    do_tra = do_tra[:do_num, :, int(start_time - do_tra[0, 0, -1]):]
+                    do_tra = do_tra[:do_num,  int(start_time - do_tra[0, 0, -1]):,:]
                     dp.set_dynamic_obstacle(do_tra)
                 target_points = np.array(dp.start(s0, sg,tra_type='target_points'))
                 target_points[:, -1] = target_points[:, -1] + start_time

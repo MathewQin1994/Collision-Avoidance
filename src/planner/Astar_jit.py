@@ -11,11 +11,11 @@ logging.basicConfig(format=FORMAT, level=logging.INFO)
 Wn = 1000
 Wc = 0.5
 Cg_max = 1000
-Ce = 1000
+Ce = 500
 gamma = 0.01
 C_sigma = 0.25
-C_colrges=5
-dimension=2
+C_colrges=0.1
+dimension=3
 # {'None':1,'cross from left':0,'take over':2,'cross from right':3,'head on':4}
 
 
@@ -116,9 +116,9 @@ class DeliberativePlanner:
         self.tmax = self.dmax / self.default_speed
         self.control_primitives = load_control_primitives(primitive_file_path)
         self.do_tra = np.zeros((0, 0, 5))
-        self.local_radius = 100
-        self.tcpa_min = 50
-        self.dcpa_min = 50
+        self.local_radius = 50
+        self.tcpa_min = 25
+        self.dcpa_min = 25
         self.collision_risk_ob = np.zeros((0, 3), dtype=np.int)
         # self.local_range_ob=[]
         logging.info('resolution_pos:{},resolution_time:{},e:{},default_speed:{},local_radius:{},tcpa_min:{},dcpa_min:{}'
@@ -131,6 +131,8 @@ class DeliberativePlanner:
     def start(self, s0, sG, fig=None,tra_type='continue'):
 
         # logging.info('start')
+        plot_lines = []
+        plot_patches = []
         evaluate_node = 0
         s_node = Node(s0, self.state2key(s0), 0, 0, 1)
         self.openlist = OpenList()
@@ -139,9 +141,9 @@ class DeliberativePlanner:
         while self.openlist.N > 0:
             sc = self.openlist.pop()
             self.closelist.add(sc.key)
-            if (sc.state[0] - sG[0])**2 + (sc.state[1] - sG[1])**2 <= (self.resolution_pos * 5)**2:
+            if (sc.state[0] - sG[0])**2 + (sc.state[1] - sG[1])**2 <= (self.resolution_pos * 4)**2:
                 if tra_type=='continue':
-                    return self.generate_total_trajectory1(sc)
+                    return self.generate_total_trajectory(sc)
                 elif tra_type=='target_points':
                     return self.generate_total_trajectory2(sc)
             current_yaw = sc.state[2]
@@ -183,20 +185,23 @@ class DeliberativePlanner:
                         #     fig.plot(s1_state[1],s1_state[0],'og',markersize=1)
 
             if fig:
-                try:
-                    for plot_line in plot_lines:
-                        fig.lines.remove(plot_line[0])
-                except BaseException:
-                    pass
+                while len(plot_lines)>0:
+                    fig.lines.remove(plot_lines.pop()[0])
+                while len(plot_patches)>0:
+                    fig.patches.remove(plot_patches.pop())
+                # try:
+                #     for plot_line in plot_lines:
+                #         fig.lines.remove(plot_line[0])
+                # except BaseException:
+                #     raise
 
-                try:
-                    for plot_patch in plot_patches:
-                        fig.patches.remove(plot_patch)
-                except BaseException:
-                    pass
+                # try:
+                #     for plot_patch in plot_patches:
+                #         fig.patches.remove(plot_patch)
+                # except BaseException:
+                #     raise
 
-                plot_lines = []
-                plot_patches = []
+
                 # plot_lines.append(fig.plot(sc.state[1], sc.state[0], "or", markersize=5))
                 fig.plot(sc.key[1], sc.key[0], "ob", markersize=2)
                 fig.add_patch(
@@ -224,8 +229,9 @@ class DeliberativePlanner:
                         i = np.where(self.collision_risk_ob[:, 0] == id)[0]
                         if len(i) > 0:
                             i = i[0]
-                            plot_patches.append(plot_colrges_cost_range(
-                                do_x, do_y, do_yaw, self.collision_risk_ob[i, 1], fig))
+                            if self.collision_risk_ob[i, 1] in {3,4}:
+                                plot_patches.append(plot_colrges_cost_range(
+                                    do_x, do_y, do_yaw, self.collision_risk_ob[i, 1], fig))
                         plot_lines.append(
                             plot_circle(
                                 (do_y, do_x), np.sqrt(
@@ -243,7 +249,7 @@ class DeliberativePlanner:
         elif dimension==3:
             return (int(round(x / self.resolution_pos) * self.resolution_pos),
                     int(round(y / self.resolution_pos) * self.resolution_pos),
-                    int(round(yaw / pi * 4)))
+                    int(round(yaw / pi * 8)))
 
     def cost_to_go(self, s1_state, sG_state):
         d = np.sqrt((s1_state[0] - sG_state[0])**2 +
@@ -348,6 +354,19 @@ class DeliberativePlanner:
                     id_father = np.where(sc.father.encounter_type[:, 0] == id)[0]
                     if len(id_father) > 0:
                         id_father = id_father[0]
+                        # if sc.father.encounter_type[id_father, 2] < 5 and sc.father.encounter_type[id_father, 1] != 0:
+                        #     encounter_type = sc.father.encounter_type[id_father, 1]
+                        #     times = sc.father.encounter_type[id_father, 2] + 1
+                        # elif encounter_type == -1 and sc.father.encounter_type[id_father, 2] == 5 and \
+                        #         sc.father.encounter_type[id_father, 1] != 0:
+                        #     encounter_type = 0
+                        # elif encounter_type == -1 and sc.father.encounter_type[id_father, 2] == 5 and \
+                        #         sc.father.encounter_type[id_father, 1] == 0:
+                        #     encounter_type = -1
+                        # elif encounter_type == -1 and sc.father.encounter_type[id_father, 2] < 5 and \
+                        #         sc.father.encounter_type[id_father, 1] == 0:
+                        #     encounter_type = sc.father.encounter_type[id_father, 1]
+                        #     times = sc.father.encounter_type[id_father, 2] + 1
                         if sc.father.encounter_type[id_father, 2] < 5 and sc.father.encounter_type[id_father, 1] > encounter_type:
                             encounter_type = sc.father.encounter_type[id_father, 1]
                             times = sc.father.encounter_type[id_father, 2] + 1
@@ -355,7 +374,7 @@ class DeliberativePlanner:
             sc.encounter_type = self.collision_risk_ob
         else:
             self.collision_risk_ob = np.zeros((0, 3), dtype=np.int)
-
+        # print(self.collision_risk_ob)
 
 def load_control_primitives(file_path):
     print("load control primitives from {}".format(file_path))
@@ -372,11 +391,11 @@ def plot_circle(c, r, fig):
 def plot_colrges_cost_range(x, y, yaw, encounter_type, fig):
     if encounter_type == 4:
         theta = -yaw * 180 / pi
-        wedge = patches.Wedge((y, x), 30, theta, theta + 97.5, color='y')
+        wedge = patches.Wedge((y, x), 20, theta, theta + 97.5, color='y')
         return fig.add_patch(wedge)
     elif encounter_type == 3:
         theta = -yaw * 180 / pi + 90
-        wedge = patches.Wedge((y, x), 30, theta - 22.5, theta + 45, color='y')
+        wedge = patches.Wedge((y, x), 20, theta - 22.5, theta + 45, color='y')
         return fig.add_patch(wedge)
 
 
@@ -521,7 +540,7 @@ def evaluate_primitive(
                     distance = np.sqrt(
                         np.dot(pos_do - primitives[i, 0:2], pos_do - primitives[i, 0:2]))
                     no_Pcsu_t *= (1 - collision_pro_cal(distance,
-                                                        C_sigma * t, 6))
+                                                        C_sigma * t, 4))
             no_Pcsu *= no_Pcsu_t
     return (1 - no_Pcsu) * exp(-gamma * s_state[4]), colrges_break / 2
 
@@ -573,9 +592,9 @@ def colrges_cost(s_usv, s_ob, encounter_type):
             s_ob[0]) -
         s_ob[2])
     distance = np.sqrt(np.dot(s_usv[0:2] - s_ob[0:2], s_usv[0:2] - s_ob[0:2]))
-    if encounter_type == 4 and -pi / 24 < alpha_b < pi / 2 and distance < 30:
+    if encounter_type == 4 and -pi / 24 < alpha_b < pi / 2 and distance < 20:
         return 1.0
-    elif encounter_type == 3 and -pi / 4 < alpha_b < pi / 8 and distance < 30:
+    elif encounter_type == 3 and -pi / 4 < alpha_b < pi / 8 and distance < 20:
         return 1.0
     else:
         return 0.0

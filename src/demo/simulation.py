@@ -4,6 +4,7 @@ sys.path.append("../..")
 from src.planner.Astar_jit import DeliberativePlanner
 from numpy import pi
 from src.map.staticmap import Map, generate_do_trajectory
+from src.experiment.do_tra_predict import get_virtual_do_tra
 import numpy as np
 import time
 import matplotlib.pyplot as plt
@@ -33,6 +34,7 @@ def do_predict(dp,s0,sG):
 def simulation(s0,sG,dp,do_dp,fig,do_tra_true=dict(),do_goal=dict(),predict_time=10):
     tra = None
     time_stamp = 0
+    si=0
     while True:
         do_tra=[]
         for key in do_tra_true:
@@ -50,6 +52,46 @@ def simulation(s0,sG,dp,do_dp,fig,do_tra_true=dict(),do_goal=dict(),predict_time
                 for key in do_tra_true:
                     fig.plot(do_tra_true[key][time_stamp:time_stamp + predict_time, 1],do_tra_true[key][time_stamp:time_stamp + predict_time, 0], 'r')
                 s0 = (tra[predict_time, 0], tra[predict_time, 1], tra[predict_time, 2], round(tra[predict_time, 3] / 0.8) * 0.8, predict_time)
+                if si==-1:
+                    tra = np.array(dp.start(s0, sG,fig))
+                else:
+                    tra = np.array(dp.start(s0, sG))
+            else:
+                break
+        else:
+            tra = np.array(dp.start(s0, sG))
+        time_stamp += predict_time
+
+        try:
+            for plot_line in plot_lines:
+                fig.lines.remove(plot_line[0])
+        except BaseException:
+            pass
+        plot_lines = []
+        plot_lines.append(fig.plot(s0[1], s0[0], "ob", markersize=5))
+        plot_lines.append(fig.plot(tra[:, 1], tra[:, 0], "--b"))
+        for i,key in enumerate(do_tra_true):
+            if do_tra_true[key].shape[0]>time_stamp:
+                plot_lines.append(fig.plot(do_tra_true[key][time_stamp, 1], do_tra_true[key][time_stamp, 0], "or", markersize=5))
+            plot_lines.append(fig.plot(do_tra[i,predict_time:, 1], do_tra[i,predict_time:, 0], "--r"))
+
+        plt.pause(0.1)
+        si+=1
+
+def simulation1(s0,sG,dp,fig,do_tra_true=dict(),predict_time=6):
+    tra = None
+    time_stamp = 0
+    while True:
+        do_tra=get_virtual_do_tra(do_tra_true,time_stamp)
+
+        if do_tra.shape[0]>0:
+            dp.set_dynamic_obstacle(do_tra)
+        if tra is not None:
+            if tra.shape[0] > predict_time:
+                fig.plot(tra[:predict_time, 1], tra[:predict_time, 0], 'b')
+                for key in do_tra_true:
+                    fig.plot(do_tra_true[key][time_stamp:time_stamp + predict_time, 1],do_tra_true[key][time_stamp:time_stamp + predict_time, 0], 'r')
+                s0 = (tra[predict_time, 0], tra[predict_time, 1], tra[predict_time, 2], round(tra[predict_time, 3] / 0.8) * 0.8, 0)
                 tra = np.array(dp.start(s0, sG))
             else:
                 break
@@ -62,14 +104,13 @@ def simulation(s0,sG,dp,do_dp,fig,do_tra_true=dict(),do_goal=dict(),predict_time
                 fig.lines.remove(plot_line[0])
         except BaseException:
             pass
-
         plot_lines = []
         plot_lines.append(fig.plot(s0[1], s0[0], "ob", markersize=5))
         plot_lines.append(fig.plot(tra[:, 1], tra[:, 0], "--b"))
         for i,key in enumerate(do_tra_true):
             if do_tra_true[key].shape[0]>time_stamp:
                 plot_lines.append(fig.plot(do_tra_true[key][time_stamp, 1], do_tra_true[key][time_stamp, 0], "or", markersize=5))
-            plot_lines.append(fig.plot(do_tra[i,10:, 1], do_tra[i,10:, 0], "--r"))
+            plot_lines.append(fig.plot(do_tra[i,predict_time:, 1], do_tra[i,predict_time:, 0], "--r"))
 
         plt.pause(0.1)
 

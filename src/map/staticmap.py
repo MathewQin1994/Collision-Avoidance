@@ -28,7 +28,7 @@ class Map:
 
     def expand(self,width):
         map=self.map.copy()
-        width=width//self.resolution
+        width=int(width/self.resolution)
         for i in range(width,map.shape[0]-width):
             for j in range(width,map.shape[1]-width):
                 if map[i,j]==1:
