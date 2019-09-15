@@ -14,7 +14,7 @@ Cg_max = 1000
 Ce = 1000
 gamma = 0.01
 C_sigma = 0.25
-C_colrges=5
+C_colrges=0.1
 dimension=2
 # {'None':1,'cross from left':0,'take over':2,'cross from right':3,'head on':4}
 
@@ -596,7 +596,7 @@ def collision_pro_cal(d, sigma2, r):
     else:
         step = (2 * d - 0.1) / 10
         step1 = (r - d) / 10
-        x = np.arange(d + r - 0.1, r - d, -step)
+        x = np.arange(d + r - 0.05, r - d, -step)
         x1 = np.arange(0, r - d, step1)
         s = np.sum(np.arccos((x ** 2 + d ** 2 - r ** 2) / 2 / x / d) * 2 * x * step / (2 * pi * sigma2) * exp(-1 / 2 * x ** 2 / sigma2))
         s1 = np.sum(1 / (2 * pi * sigma2) * exp(-1 / 2 * x1 ** 2 / sigma2) * 2 * pi * x1 * step1)
