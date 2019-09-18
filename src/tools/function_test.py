@@ -2,7 +2,7 @@ import numpy as np
 from numpy import pi,exp,cos,sin
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Wedge, Polygon
-from Astar import yawRange
+# from Astar import yawRange
 import time
 from numba import jit,prange
 from numpy.linalg import cholesky
@@ -37,7 +37,7 @@ def collision_pro_montecarlo(pos_usv,pos_ob,sigma,radius,sample_num,plot_show=Fa
 
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def collision_pro_cal(d,sigma2,r):
     if d==0:
         step=r/10
@@ -48,10 +48,12 @@ def collision_pro_cal(d,sigma2,r):
         x=np.arange(d+r-0.1,d-r,-step)
         return np.sum(np.arccos((x ** 2 + d ** 2 - r ** 2) / 2 / x / d)*2*x*step / (2 * pi * sigma2) * exp(-1 / 2 * x ** 2 / sigma2))
     else:
-        step = (2*d - 0.1) / 10
+        step = (1.9*d) / 10
         step1=(r-d)/10
-        x=np.arange(d+r-0.1,r-d,-step)
+        x=np.arange(0.95*d+r,r-d,-step)
         x1=np.arange(0,r-d,step1)
+        b=(x ** 2 + d ** 2 - r ** 2) / 2 / x / d
+        a=np.arccos((x ** 2 + d ** 2 - r ** 2) / 2 / x / d)
         s=np.sum(np.arccos((x ** 2 + d ** 2 - r ** 2) / 2 / x / d)*2*x*step / (2 * pi * sigma2) * exp(-1 / 2 * x ** 2 / sigma2))
         s1=np.sum(1 / (2 * pi * sigma2) * exp(-1 / 2 * x1 ** 2 / sigma2)*2*pi*x1*step1)
         return s+s1
@@ -254,19 +256,20 @@ if __name__=="__main__":
     radius=1000
     N=2400
     n=1900000
-
+    test=(0.011275703425706596, 16.0, 4)
 
     # p1=collision_pro_montecarlo(pos_usv, pos_ob, sigma, radius, 8000, plot_show=True)
     # d = np.sqrt(np.inner(pos_usv - pos_ob, pos_usv - pos_ob))
-    # p2=collision_pro_cal(d,std**2,radius)
+    p2=collision_pro_cal(*test)
+    print(p2)
     # print(p1,p2)
-    start_time=time.time()
-    compare(100)
-    print(time.time()-start_time)
-
-    start_time=time.time()
-    compare(n)
-    print(time.time()-start_time)
+    # start_time=time.time()
+    # compare(100)
+    # print(time.time()-start_time)
+    #
+    # start_time=time.time()
+    # compare(n)
+    # print(time.time()-start_time)
     # ts=np.arange(300)
     # plt.figure(2)
     # plt.plot(ts,np.exp(-0.01*ts))

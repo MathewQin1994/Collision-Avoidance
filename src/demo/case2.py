@@ -9,18 +9,26 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib as mpl
 import logging
 
+colors = ['white', 'gold', 'orange', 'blue', 'green', 'purple']
+bounds = [0,1,2,3,4,5,6]
 
+
+cmap = mpl.colors.ListedColormap(colors)
+norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
 
 if __name__=="__main__":
 
     # 地图、起点、目标
     static_map = Map()
-    static_map.load_map(np.loadtxt('../map/static_map2.txt', dtype=np.int8), 1)
-    s0 = tuple(np.array((183, 213, 0.86-pi, 0.8, 10), dtype=np.float64))
+    static_map.load_map(np.loadtxt('../map/static_map2.txt', dtype=np.int8), resolution=0.5)
+    # s0 = tuple(np.array((183, 213, 0.86-pi, 0.8, 10), dtype=np.float64))
     s0 = tuple(np.array((200, 180, 0, 0.8, 10), dtype=np.float64))
     sG = tuple(np.array((74, 150, pi, 0.8, 0), dtype=np.float64))
+    s0 = tuple(np.array((100, 90, pi/2, 0.8, 6), dtype=np.float64))
+    sG = tuple(np.array((74/2, 150/2, pi, 0.8, 0), dtype=np.float64))
 
 
     fig = plt.gca()
@@ -34,10 +42,10 @@ if __name__=="__main__":
         static_map.resolution +
         static_map.offset[1]-1]
     mapplot = static_map.map.copy()
-    static_map.expand(2)
+    static_map.expand(1)
     for i in range(mapplot.shape[0]):
         mapplot[i, :] = mapplot[i, :][::-1]
-    fig.imshow(mapplot.T, extent=extend)
+    fig.imshow(mapplot.T, extent=extend, interpolation='none', cmap=cmap, norm=norm)
     fig.set_xlabel('E/m')
     fig.set_ylabel('N/m')
     fig.plot(sG[1], sG[0], "ob", markersize=5)
@@ -62,8 +70,10 @@ if __name__=="__main__":
     do_tra_true = dict()
     do_goal=dict()
 
-    do_s0['1']=(86, 94, 0.86, 0.8, 0)
-    do_goal['1'] = (183, 213)
+    # do_s0['1']=(86, 94, 0.86, 0.8, 0)
+    # do_goal['1'] = (183, 213)
+    do_s0['1']=(45, 45, 0.86, 0.8, 0)
+    do_goal['1'] = (100, 117)
     # do_s0['2']=(113, 95, 0.86, 0.8, 0)
     # do_goal['2'] = (170, 222)
 
@@ -73,12 +83,12 @@ if __name__=="__main__":
             resolution_pos,
             resolution_time,
             do_s0[key][3],
-            '../primitive/control_primitives{}.npy'.format(do_s0[key][3]),
+            '../primitive/control_primitives.npy',
             e)
         do_tra_true[key]=np.array(do_dp[key].start(do_s0[key],do_goal[key]))
 
 
-    simulation(s0, sG, dp, do_dp,fig,do_tra_true,do_goal)
+    simulation(s0, sG, dp, do_dp,fig,do_tra_true,do_goal,predict_time=6)
     # simulation(s0, sG, dp, do_dp, fig)
     # tra=dp.start(s0,sG)
     plt.show()

@@ -8,10 +8,10 @@ from src.planner.Astar_jit import DeliberativePlanner
 from src.map.staticmap import Map
 import time
 
-dT=10
+dT=12
 max_length=200
 control_primitives = np.load('../primitive/control_primitives.npy').item()
-sg = tuple(np.array((41, 71, pi, 0.8, 0), dtype=np.float64))
+sg = tuple(np.array((41/2, 71/2, pi, 0.8, 0), dtype=np.float64))
 
 def yawRange(x):
     if x > pi:
@@ -77,8 +77,8 @@ def initialize():
 
     #地图
     static_map = Map()
-    static_map.load_map(np.loadtxt('../map/static_map1.txt', dtype=np.int8), 1)
-    static_map.expand(2)
+    static_map.load_map(np.loadtxt('../map/static_map1.txt', dtype=np.int8), resolution=0.5)
+    static_map.expand(1)
 
     #轨迹规划器
     resolution_time = 1
@@ -96,6 +96,7 @@ def initialize():
     time.sleep(0.5)
     return dev,t,dp
 
+
 if __name__=='__main__':
     try:
         dev,t,dp=initialize()
@@ -111,16 +112,18 @@ if __name__=='__main__':
                     s0 = (state[3], state[4], state[5], state[0], 0)
                 else:
                     dev.pub_set('idx-length',[t.i-1,target_points.shape[0]])
-                    print(target_points[:,0:2])
+                    # print(target_points)
                     ta1=target_points.flatten().tolist()
                     ta1.extend([0] * (max_length * 5 - len(ta1)))
                     dev.pub_set('target_points',ta1)
                     s0=(tra[dT,0],tra[dT,1],tra[dT,2],tra[dT,3],0)
+                    print(state[3:],tra[0,:3])
 
+                # a=get_virtual_do_tra(do_tra_true,start_time)
                 do_num = int(dev.sub_get1('do_num'))
                 if do_num > 0:
                     do_tra = np.array(dev.sub_get('do_tra')).reshape((3, max_length, 5))
-                    do_tra = do_tra[:do_num, :, int(start_time - do_tra[0, 0, -1]):]
+                    do_tra = do_tra[:do_num,  int(start_time - do_tra[0, 0, -1]):,:]
                     dp.set_dynamic_obstacle(do_tra)
                 target_points = np.array(dp.start(s0, sg,tra_type='target_points'))
                 target_points[:, -1] = target_points[:, -1] + start_time

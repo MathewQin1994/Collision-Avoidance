@@ -181,7 +181,7 @@ def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False,
 
 def get_all_control_primitives(save=True):
     # time_set=np.array([10,5],dtype=np.int)
-    u=1.2
+    u=0.4
     control_primitives=dict()
     action_time=10
     control_primitives[u]=dict()
@@ -192,7 +192,7 @@ def get_all_control_primitives(save=True):
         control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False,STOP=True),dtype=np.float64)
 
     action_time = 6
-    yaw_set = np.array([-pi/3,-pi / 6, pi / 6, pi / 3], dtype=np.float64)
+    yaw_set = np.array([-pi/3,-pi / 6,0, pi / 6, pi / 3], dtype=np.float64)
     for yaw in yaw_set:
         key=(action_time,"{:.2f}".format(yaw))
         key = (action_time, np.int(np.round(yaw * 180 / pi)))
@@ -229,6 +229,6 @@ def control_primitives_visual(control_primitives):
 if __name__=="__main__":
     # s0=(0.8,0,0,0,0,0)
     # control_action_primitives(s0, 0.8, pi/3,6, plot=True, STOP=True)
-    control_primitives=get_all_control_primitives(save=False)
+    control_primitives=get_all_control_primitives(save=True)
     # control_primitives=np.load('control_primitives.npy').item()
     control_primitives_visual(control_primitives)
