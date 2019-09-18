@@ -22,18 +22,18 @@ def acceleration(u,v,r,n1,n2):
 def state_update(s,n1,n2):
     u, v, r, x, y, yaw=s
     ax,ay,ar=acceleration(u,v,r,n1,n2)
-    # u1=u+ax*dt+0.01*np.random.randn()
-    # v1=v+ay*dt+0.01*np.random.randn()
-    # r1=r+ar*dt+0.005*np.random.randn()
-    u1=u+ax*dt
-    v1=v+ay*dt
-    r1=r+ar*dt
-    # x1=x+(u*cos(yaw)-v*sin(yaw))*dt+0.01*np.random.randn()
-    # y1=y+(u*sin(yaw)+v*cos(yaw))*dt+0.01*np.random.randn()
-    # yaw1=yaw+r*dt+0.01*np.random.randn()
-    x1=x+(u*cos(yaw)-v*sin(yaw))*dt
-    y1=y+(u*sin(yaw)+v*cos(yaw))*dt
-    yaw1=yaw+r*dt
+    u1=u+ax*dt+0.01*np.random.randn()
+    v1=v+ay*dt+0.01*np.random.randn()
+    r1=r+ar*dt+0.005*np.random.randn()
+    # u1=u+ax*dt
+    # v1=v+ay*dt
+    # r1=r+ar*dt
+    x1=x+(u*cos(yaw)-v*sin(yaw))*dt+0.01*np.random.randn()
+    y1=y+(u*sin(yaw)+v*cos(yaw))*dt+0.01*np.random.randn()
+    yaw1=yaw+r*dt+0.01*np.random.randn()
+    # x1=x+(u*cos(yaw)-v*sin(yaw))*dt
+    # y1=y+(u*sin(yaw)+v*cos(yaw))*dt
+    # yaw1=yaw+r*dt
     return (u1,v1,r1,x1,y1,yaw1)
 
 def yawRange(x):
@@ -49,7 +49,7 @@ def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False)
     yaw_control=PIDcontroller(800/60,3/60,10/60,dt)
     speed_control=PIDcontroller(3200/60,3/60,10/60,dt)
     propeller_speed = target_speed * 19.56
-    d=3/pi*abs(target_yaw)+2
+    d=(3/pi*abs(target_yaw)+2)*target_speed/0.8
     delta=10
     if plot:
         fig=plt.figure()
@@ -60,7 +60,7 @@ def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False)
         a2.set_xlabel('y')
         a2.set_ylabel('x')
         a2.axis("equal")
-        a2.plot([0,(target_speed*action_time-d)*tan(target_yaw)],[d,target_speed*action_time],"-r")
+        a2.plot([0,(delta-d)*tan(target_yaw)],[d,delta],"-r")
         a3=fig.add_subplot(2,2,3)
         a3.set_xlabel('t/s')
         a3.set_ylabel('u/m*s-1')
@@ -87,7 +87,7 @@ def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False)
         l +=s[0]*dt
         s=state_update(s,n1,n2)
         # print(e,alpha,n1,n2)
-        if i%10==0:
+        if i%1==0:
             primitives_state.append((s[3],s[4],s[5],s[0],i*dt,l))
         if plot:
             a1.plot(i*dt,s[5],"ok",markersize=2)
@@ -106,7 +106,7 @@ def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False)
 
 def get_all_control_primitives(save=True):
     # time_set=np.array([10,5],dtype=np.int)
-    u=0.8
+    u=1.2
     control_primitives=dict()
     action_time=6
     control_primitives[u]=dict()
@@ -120,7 +120,7 @@ def get_all_control_primitives(save=True):
     yaw_set = np.array([-pi/3,-pi / 6,pi / 6, pi / 3], dtype=np.float64)
     for yaw in yaw_set:
         key = (action_time, np.int(np.round(yaw * 180 / pi)))
-        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
+        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=True),dtype=np.float64)
 
     action_time = 6
     control_primitives[0.0] = dict()
@@ -143,7 +143,8 @@ def control_primitives_visual(control_primitives):
         a.append(fig.add_subplot(y_num,x_num,i+1))
         a[i].set_xlabel('y/m')
         a[i].set_ylabel('x/m')
-        a[i].set_title(str(k))
+        a[i].set_title('{}m/s'.format(k))
+        a[i].axis("equal")
         for key,c in control_primitives[k].items():
             a[i].plot([0]+c[:,1].tolist(),[0]+c[:,0].tolist())
             a[i].annotate(str(key),(c[-1,1],c[-1,0]))
@@ -227,6 +228,92 @@ def generate_target_points(s0,control_primitives,n,fig=None):
     # plt.show()
     return target_points
 
+def zuotu(save=False):
+    # time_set=np.array([10,5],dtype=np.int)
+    u=0.8
+    control_primitives=dict()
+    action_time=10
+    control_primitives[u]=dict()
+    yaw_set = np.array([-pi / 12, -pi / 4,0, pi / 12, pi / 4], dtype=np.float64)
+    # yaw_set = np.array([-pi / 4, 0, pi / 4], dtype=np.float64)
+    for yaw in yaw_set:
+        key=(u,np.int(np.round(yaw*180/pi)))
+        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
+
+    action_time = 10
+    yaw_set = np.array([-pi / 6, -pi / 3,pi / 6, pi / 3], dtype=np.float64)
+    for yaw in yaw_set:
+        key = (u, np.int(np.round(yaw * 180 / pi)))
+        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
+
+    u=1.2
+    action_time=10
+    control_primitives[u]=dict()
+    yaw_set = np.array([-pi / 12, -pi / 4, 0, pi / 12, pi / 4], dtype=np.float64)
+    # yaw_set = np.array([-pi / 4, 0, pi / 4], dtype=np.float64)
+    for yaw in yaw_set:
+        key=(u,np.int(np.round(yaw*180/pi)))
+        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
+
+    action_time = 10
+    yaw_set = np.array([-pi / 6, -pi / 3, pi / 6, pi / 3], dtype=np.float64)
+    for yaw in yaw_set:
+        key = (u, np.int(np.round(yaw * 180 / pi)))
+        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
+
+    return control_primitives
+
+def zuotu1(s0,target_speed,target_yaw,action_time):
+
+    yaw_control=PIDcontroller(800/60,0/60,10/60,dt)
+    speed_control=PIDcontroller(3200/60,3/60,10/60,dt)
+    propeller_speed = target_speed * 19.56
+    d=(3/pi*abs(target_yaw)+2)*target_speed/0.8
+    delta=10
+    fig=plt.gca()
+    fig.set_xlabel('y/m')
+    fig.set_ylabel('x/m')
+    fig.axis("equal")
+
+    color=['r','g','b','y']
+    ds=[d/2,0.75*d,1.05*d,1.5*d]
+    for d,c in zip(ds,color):
+        s = s0
+        primitives_state = []
+        i=1
+        l=0
+        fig.plot([0, (delta/2-d/2) * tan(target_yaw)], [d, delta/2+d/2], "--{}".format(c))
+        while True:
+            #s=(u,v,r,x,y,yaw)
+            e=abs(cos(target_yaw))*(s[4]-(s[3]-d)*tan(target_yaw))
+            alpha=np.arctan2(e,delta)
+
+            d_pro=speed_control.update(target_speed-s[0])
+            diff=yaw_control.update(yawRange(target_yaw-alpha-s[5]))
+            n1=propeller_speed +d_pro+diff*8/propeller_speed
+            n2=propeller_speed +d_pro-diff*8/propeller_speed
+            if n1>25:
+                n1=25
+            elif n1<-25:
+                n1=-25
+            if n2>25:
+                n2=25
+            elif n2<-25:
+                n2=-25
+            # print(n1,n2)
+            l +=s[0]*dt
+            s=state_update(s,n1,n2)
+            # print(e,alpha,n1,n2)
+            primitives_state.append((s[3],s[4],s[5],s[0],i*dt,l))
+
+            # fig.plot(s[4],s[3],"o{}".format(c),markersize=2)
+            # plt.pause(0.0001)
+            if i >= action_time/dt:
+                break
+            i+=1
+        primitives_state=np.array(primitives_state)
+        fig.plot(primitives_state[:,1],primitives_state[:,0],c)
+        # print("u0:{} u:{} yaw:{} distance:{} time:{}".format(s0[0],target_speed,target_yaw,np.sqrt(s[3]**2+s[4]**2),i*dt))
 
 
 if __name__=="__main__":
@@ -236,9 +323,11 @@ if __name__=="__main__":
     # action_time=10
     # control_action_primitives(s0, target_speed, target_yaw, action_time, plot=True)
 
-    # control_primitives=get_all_control_primitives(save=True)
-    # # control_primitives=np.load('control_primitives.npy').item()
+    # control_primitives=get_all_control_primitives(save=False)
+    # control_primitives=np.load('control_primitives.npy').item()
+    # control_primitives=zuotu()
     # control_primitives_visual(control_primitives)
+    # zuotu1(s0,0.8,pi/4,8)
 
 
     fig = plt.gca()

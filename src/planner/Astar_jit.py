@@ -14,7 +14,7 @@ Cg_max = 1000
 Ce = 500
 gamma = 0.0
 C_sigma = 0.25
-C_colrges=0.1
+C_colrges=0
 dimension=3
 # {'None':1,'cross from left':0,'take over':2,'cross from right':3,'head on':4}
 
@@ -461,21 +461,6 @@ def colrges_encounter_type(s_usv, s_ob):
 #         encounter_type = 0
 #     return encounter_type
 
-# @jit(nopython=True)
-# def extend_new_node_jit(s_state,keys,ucd,s_ps,s_g):
-#     gs=np.zeros(len(keys))
-#     Pss = np.zeros(len(keys))
-#     s1_states=[]
-#     for i in prange(len(keys)):
-#         s1_state=(s_state[0]+ucd[i,keys[i,0]-1, 0] * cos(s_state[2]) - ucd[i,keys[i,0]-1, 1] * sin(s_state[2]),
-#                   s_state[1]+ucd[i,keys[i,0]-1, 0] * sin(s_state[2]) + ucd[i,keys[i,0]-1, 1] * cos(s_state[2]),
-#                   yawRange(s_state[2]+np.round(keys[i,1]/15)*15*pi/180), s_state[3], s_state[4] + ucd[i,keys[i,0]-1, 4])
-#         g, Ps = cost_to_come(s_state, s1_state, ucd[i],s_ps,s_g)
-#         gs[i]=g
-#         Pss[i]=Ps
-#         s1_states.append(s1_state)
-#     return gs,Pss,s1_states
-
 
 @jit(nopython=True)
 def cost_to_come(
@@ -618,11 +603,11 @@ def collision_pro_cal(d, sigma2, r):
         return np.sum(np.arccos((x ** 2 + d ** 2 - r ** 2) / 2 / x / d) *
                       2 * x * step / (2 * pi * sigma2) * exp(-1 / 2 * x ** 2 / sigma2))
     else:
-        step = (2 * d - 0.1) / 10
-        step1 = (r - d) / 10
-        x = np.arange(d + r - 0.05, r - d, -step)
-        x1 = np.arange(0, r - d, step1)
-        s = np.sum(np.arccos((x ** 2 + d ** 2 - r ** 2) / 2 / x / d) * 2 * x * step / (2 * pi * sigma2) * exp(-1 / 2 * x ** 2 / sigma2))
-        s1 = np.sum(1 / (2 * pi * sigma2) * exp(-1 / 2 * x1 ** 2 / sigma2) * 2 * pi * x1 * step1)
-        return s + s1
+        step = (1.9*d) / 10
+        step1=(r-d)/10
+        x=np.arange(0.95*d+r,r-d,-step)
+        x1=np.arange(0,r-d,step1)
+        s=np.sum(np.arccos((x ** 2 + d ** 2 - r ** 2) / 2 / x / d)*2*x*step / (2 * pi * sigma2) * exp(-1 / 2 * x ** 2 / sigma2))
+        s1=np.sum(1 / (2 * pi * sigma2) * exp(-1 / 2 * x1 ** 2 / sigma2)*2*pi*x1*step1)
+        return s+s1
 

@@ -9,9 +9,15 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib as mpl
 import logging
 
+colors = ['white', 'gold', 'orange', 'blue', 'green', 'purple']
+bounds = [0,1,2,3,4,5,6]
 
+
+cmap = mpl.colors.ListedColormap(colors)
+norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
 
 if __name__=="__main__":
 
@@ -39,7 +45,7 @@ if __name__=="__main__":
     static_map.expand(1)
     for i in range(mapplot.shape[0]):
         mapplot[i, :] = mapplot[i, :][::-1]
-    fig.imshow(mapplot.T, extent=extend)
+    fig.imshow(mapplot.T, extent=extend, interpolation='none', cmap=cmap, norm=norm)
     fig.set_xlabel('E/m')
     fig.set_ylabel('N/m')
     fig.plot(sG[1], sG[0], "ob", markersize=5)

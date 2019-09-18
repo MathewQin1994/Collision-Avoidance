@@ -10,7 +10,15 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib as mpl
 import logging
+
+colors = ['white', 'gold', 'orange', 'blue', 'green', 'purple']
+bounds = [0,1,2,3,4,5,6]
+
+
+cmap = mpl.colors.ListedColormap(colors)
+norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
 
 def do_tra_predict(s0,target_points):
     speed=s0[3]
@@ -54,7 +62,7 @@ if __name__=="__main__":
     static_map.expand(1)
     for i in range(mapplot.shape[0]):
         mapplot[i, :] = mapplot[i, :][::-1]
-    fig.imshow(mapplot.T, extent=extend)
+    fig.imshow(mapplot.T, extent=extend, interpolation='none', cmap=cmap, norm=norm)
     fig.set_xlabel('E/m')
     fig.set_ylabel('N/m')
     fig.plot(sG[1], sG[0], "ob", markersize=5)
@@ -106,14 +114,10 @@ if __name__=="__main__":
     do_s0['1'] = (71, 2, 1.57, 0.8, 0)
     do_goal['1'] = [(87, 22), (53 / 2, 121 / 2)]
     do_s0['2'] = (24, 54, 0, 0.8, 0)
-    do_goal['2'] = [(56, 49), (81, 95)]
+    do_goal['2'] = [(58, 49), (79, 95)]
 
-    do_s0['2'] = (40 / 2, 114 / 2, 0, 0.8, 0)
-    do_goal['2'] = [(56, 48), (76, 99)]
-    # do_s0['2'] = (58, 48, 0, 0.4, 0)
-    # do_goal['2'] = [(78, 99)]
-    # do_s0['3'] = (159/2, 155/2, pi, 0.4, 0)
-    # do_goal['3'] = (99/2, 93/2)
+    do_s0['3'] = (93, 44, pi, 0.4, 0)
+    do_goal['3'] = [(66, 59),(57,41)]
     # do_s0['4']=(75, 78, -pi/2, 0.4, 0)
     # do_goal['4'] = (52, 49)
 
