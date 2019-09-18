@@ -7,12 +7,18 @@ from src.tools.msgdev import PeriodTimer,MsgDevice
 from src.map.staticmap import Map
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib as mpl
 import logging
 from collections import deque
 import time
 
+colors = ['white', 'gold', 'orange', 'blue', 'green', 'purple']
+bounds = [0,1,2,3,4,5,6]
+cmap = mpl.colors.ListedColormap(colors)
+norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+
 max_length=200
-control_primitives = np.load('../primitive/control_primitives.npy').item()
+control_primitives = np.load('../primitive/control_primitives.npy',allow_pickle=True).item()
 
 x_q=deque()
 y_q=deque()
@@ -28,6 +34,7 @@ def update_state(dev,fig,plot_lines):
     while len(plot_lines)>0:
         fig.lines.remove(plot_lines.pop()[0])
     plot_lines.append(fig.plot(y_q,x_q,'b'))
+    plot_lines.append(fig.plot(s_ob[4], s_ob[3], 'bv'))
 
 
 def update_planning(dev,fig,plot_lines):
@@ -108,7 +115,7 @@ if __name__=='__main__':
         static_map.expand(1)
         for i in range(mapplot.shape[0]):
             mapplot[i, :] = mapplot[i, :][::-1]
-        fig.imshow(mapplot.T, extent=extend)
+        fig.imshow(mapplot.T, extent=extend, interpolation='none', cmap=cmap, norm=norm)
         fig.set_xlabel('E/m')
         fig.set_ylabel('N/m')
 
