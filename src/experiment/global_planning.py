@@ -70,7 +70,7 @@ def initialize():
     dev.sub_connect('tcp://127.0.0.1:55007')
     dev.sub_connect('tcp://127.0.0.1:55009')
     dev.sub_connect('tcp://127.0.0.1:55001')  # receive rpm from joystick
-    dev.sub_add_url('js.autoctrl')
+    dev.sub_add_url('js.autoctrl',default_values=1)
     dev.pub_bind('tcp://0.0.0.0:55008')
     dev.sub_add_url('USV150.state', default_values=(0, 0, 0, 0, 0, 0))
     dev.sub_add_url('do_tra', default_values=[0]*(max_length*5*3))

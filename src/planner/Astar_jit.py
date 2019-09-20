@@ -14,7 +14,7 @@ Cg_max = 1000
 Ce = 500
 gamma = 0.0
 C_sigma = 0.25
-C_colrges=0
+C_colrges=0.1
 dimension=3
 # {'None':1,'cross from left':0,'take over':2,'cross from right':3,'head on':4}
 

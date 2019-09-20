@@ -82,7 +82,7 @@ if __name__=='__main__':
         dev=MsgDevice()
         dev.open()
         dev.sub_connect('tcp://127.0.0.1:55001')  # receive rpm from joystick
-        dev.sub_add_url('js.autoctrl')
+        dev.sub_add_url('js.autoctrl',default_values=1)
         dev.pub_bind('tcp://0.0.0.0:55009')
         do_tra_true=None
         t = PeriodTimer(dt)

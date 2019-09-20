@@ -165,6 +165,8 @@ def trajectory_following(s0,target_points,fig=None):
     while p<len(target_points):
         target_x, target_y, target_yaw, target_speed, target_t = target_points[p]
         propeller_speed = target_speed * 19.56
+        if fig:
+            fig.plot(target_y, target_x, "or", markersize=5)
         # while np.sqrt((s[3]-target_x)**2+(s[4]-target_y)**2)>0.1:
         while i<target_t*10:
             s_ob = (
@@ -177,7 +179,7 @@ def trajectory_following(s0,target_points,fig=None):
                 coe=-1
             e=coe*abs(cos(target_yaw)*(s_ob[4]-target_y-tan(target_yaw)*(s_ob[3]-target_x)))
             alpha = np.arctan2(e, delta)
-            print(target_yaw,alpha,s_ob[5],e)
+            # print(target_yaw,alpha,s_ob[5],e)
             d_pro = speed_control.update(target_speed - s_ob[0])
             diff = yaw_control.update(yawRange(target_yaw - alpha - s_ob[5]))
             n1 = propeller_speed + d_pro + diff * 8 / propeller_speed

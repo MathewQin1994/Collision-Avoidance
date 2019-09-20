@@ -247,6 +247,89 @@ def colrges_cost(s_usv,s_ob,encounter_type):
     else:
         return 0.0
 
+def test_EKF():
+    def acceleration(u,v,r,n1,n2):
+        ax=(58.0*r*v-6.7*u*abs(u)+15.9*r**2+0.01205*
+            (n1*abs(n1)+n2*abs(n2))-0.0644*(u*(abs(n1)+abs(n2))+0.45*r*(abs(n1)-abs(n2))))/33.3
+        ay=(-33.3*r*u-29.5*v+11.8*r)/58
+        ar=(-0.17*v-2.74*r-4.78*r*abs(r)+0.45*
+            (0.01205*(n1*abs(n1)-n2*abs(n2))-0.0644*(u*(abs(n1)-abs(n2))+0.45*r*(abs(n1)+abs(n2)))))/6.1
+        return ax,ay,ar
+
+    def state_update(s,n1,n2):
+        u, v, r, x, y, yaw=s
+        ax,ay,ar=acceleration(u,v,r,n1,n2)
+        u1=u+ax*dt+0.01*np.random.randn()
+        v1=v+ay*dt+0.01*np.random.randn()
+        r1=r+ar*dt+0.005*np.random.randn()
+        u1=u+ax*dt
+        v1=v+ay*dt
+        r1=r+ar*dt
+        x1=x+(u*cos(yaw)-v*sin(yaw))*dt
+        y1=y+(u*sin(yaw)+v*cos(yaw))*dt
+        yaw1=yawRange(yaw+r*dt)
+        return (u1,v1,r1,x1,y1,yaw1)
+
+    def yawRange(x):
+        if x > pi:
+            x = x - 2 * pi
+        elif x < -pi:
+            x = x + 2 * pi
+        return x
+    def observe(s):
+        u, v, r, x, y, yaw = s
+        uo=u * cos(yaw) - v * sin(yaw)+0.0545*np.random.randn()
+        vo=u * sin(yaw) + v * cos(yaw)+0.0545*np.random.randn()
+        r=r+0.0045*np.random.randn()
+        x=x+0.2*np.random.randn()
+        y = y + 0.2 * np.random.randn()
+        yaw = yaw + 0.1 * np.random.randn()
+        return (uo,vo,r,x,y,yaw)
+
+    kalman=EKF()
+    s = (0.8, 0, 0.2, 100, 100, 0)
+    fig=plt.gca()
+    a2=plt.gca()
+    i=0
+    x_q = deque()
+    y_q = deque()
+    x_ob_q = deque()
+    y_ob_q = deque()
+    x_q_t = deque()
+    y_q_t = deque()
+    plot_lines=[]
+    while True:
+        if i%10==0:
+            n1=15
+            n2 =20
+        s=state_update(s,n1,n2)
+        y_ob=observe(s)
+        kalman.update(np.array(y_ob),n1,n2)
+        print(kalman.x,s)
+        # print(kalman.P[0,0],kalman.P[3,3],kalman.P[4,4],kalman.P[5,5])
+        x_q.append(kalman.x[3])
+        y_q.append(kalman.x[4])
+        x_ob_q.append(y_ob[3])
+        y_ob_q.append(y_ob[4])
+        x_q_t.append(s[3])
+        y_q_t.append(s[4])
+        if len(x_q) > 600:
+            x_q.popleft()
+            y_q.popleft()
+            x_ob_q.popleft()
+            y_ob_q.popleft()
+            x_q_t.popleft()
+            y_q_t.popleft()
+        while len(plot_lines) > 0:
+            fig.lines.remove(plot_lines.pop()[0])
+        plot_lines.append(fig.plot(y_q, x_q, 'b'))
+        plot_lines.append(fig.plot(y_ob_q, x_ob_q, 'r'))
+        plot_lines.append(fig.plot(y_q_t, x_q_t, 'y'))
+        # a2.plot(i,kalman.x[0],'bo')
+        # a2.plot(i, y_ob[0], 'ro')
+        # a2.plot(i, s[0], 'yo')
+        plt.pause(0.1)
+        i+=1
 if __name__=="__main__":
     # test_cpa()
     std=200
