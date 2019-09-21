@@ -124,3 +124,4 @@ dmypy.json
 .idea/
 case1/
 .DS_Store
+src/data_record/
