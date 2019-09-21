@@ -323,7 +323,7 @@ class DeliberativePlanner:
 
     def compute_trajectory(self, s_state, s1_state):
         # ucd=self.control_primitives[s_state[3]][(int(s1_state[4]-s_state[4]),"{:.2f}".format(yawRange(s1_state[2]-s_state[2])))]
-        ucd = self.control_primitives[s_state[3]][(int(
+        ucd = self.control_primitives[round(s_state[3]/ self.default_speed) * self.default_speed][(int(
             s1_state[4] - s_state[4]), np.int(np.round(180 / pi * yawRange(s1_state[2] - s_state[2]))))]
         yaw = s_state[2]
         state_all = []

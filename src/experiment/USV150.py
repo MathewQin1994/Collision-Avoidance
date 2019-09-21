@@ -16,6 +16,7 @@ def acceleration(u,v,r,n1,n2):
     return ax,ay,ar
 
 def state_update(s,n1,n2):
+    n1,n2=n1/60,n2/60
     u, v, r, x, y, yaw=s
     ax,ay,ar=acceleration(u,v,r,n1,n2)
     u1=u+ax*dt+0.01*np.random.randn()
@@ -36,6 +37,17 @@ def yawRange(x):
         x = x + 2 * pi
     return x
 
+def choose_case():
+    case=sys.argv[1]
+    if case=='case1':
+        s0 = tuple(np.array((88, 103, 0.86 - pi, 0, 0), dtype=np.float64))
+    elif case=='case2':
+        s0 = tuple(np.array((100, 90, pi / 2, 0.8, 6), dtype=np.float64))
+    elif case=='case3':
+        s0 = tuple(np.array((-29, 39, 0, 0, 0), dtype=np.float64))
+    else:
+        raise
+    return s0
 
 if __name__=='__main__':
     try:
@@ -47,7 +59,8 @@ if __name__=='__main__':
         dev.sub_add_url('pro.right.speed')
         t=PeriodTimer(dt)
         t.start()
-        s=(0,0,0,88, 103, 0.86-pi)
+        s=choose_case()
+        s=(0,0,0,s[0],s[1],s[2])
         while True:
             with t:
                 n1 = dev.sub_get1('pro.left.speed')

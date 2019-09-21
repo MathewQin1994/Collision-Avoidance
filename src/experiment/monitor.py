@@ -25,6 +25,7 @@ y_q=deque()
 idx_old=-1
 def update_state(dev,fig,plot_lines):
     s_ob = dev.sub_get('USV150.state')
+    print("u:{:.2f},v:{:.2f},r:{:.2f},x:{:.2f},y:{:.2f},yaw:{:.2f},".format(*s_ob))
     x_q.append(s_ob[3])
     y_q.append(s_ob[4])
     if len(x_q)>60:
@@ -91,37 +92,46 @@ def yawRange(x):
         x = x + 2 * pi
     return x
 
+def choose_case():
+    static_map = Map()
+    case=sys.argv[2]
+    if case=='case1':
+        static_map.load_map(np.loadtxt('../map/static_map1.txt', dtype=np.int8), resolution=0.5)
+    elif case=='case2':
+        static_map.load_map(np.loadtxt('../map/static_map2.txt', dtype=np.int8), resolution=0.5)
+    elif case=='case3':
+        static_map.load_map(np.loadtxt('../map/static_map3.txt', dtype=np.int8), resolution=1, offset=(-63, -54))
+    else:
+        raise
+    fig = plt.gca()
+    extend = [
+        static_map.offset[0],
+        static_map.size[0] *
+        static_map.resolution +
+        static_map.offset[0] - 1,
+        static_map.offset[1],
+        static_map.size[1] *
+        static_map.resolution +
+        static_map.offset[1] - 1]
+    mapplot = static_map.map.copy()
+    for i in range(mapplot.shape[0]):
+        mapplot[i, :] = mapplot[i, :][::-1]
+    fig.imshow(mapplot.T, extent=extend, interpolation='none', cmap=cmap, norm=norm)
+    fig.set_xlabel('E/m')
+    fig.set_ylabel('N/m')
+    fig.axis("equal")
+    return fig
+
 if __name__=='__main__':
     try:
         # 地图、起点、目标
-        static_map = Map()
-        static_map.load_map(np.loadtxt('../map/static_map1.txt', dtype=np.int8), 0.5)
-        # s0 = tuple(np.array((174, 201, 0.86 - pi, 0.8, 10), dtype=np.float64))
-        # # s0 = tuple(np.array((190, 1, 1.57, 0.8, 0), dtype=np.float64))
-        # sG = tuple(np.array((41, 71, pi, 0.8, 0), dtype=np.float64))
-        # # sG = tuple(np.array((55, 180, pi, 0.8, 0), dtype=np.float64))
-
-        fig = plt.gca()
-        extend = [
-            static_map.offset[0],
-            static_map.size[0] *
-            static_map.resolution +
-            static_map.offset[0] - 1,
-            static_map.offset[1],
-            static_map.size[1] *
-            static_map.resolution +
-            static_map.offset[1] - 1]
-        mapplot = static_map.map.copy()
-        static_map.expand(1)
-        for i in range(mapplot.shape[0]):
-            mapplot[i, :] = mapplot[i, :][::-1]
-        fig.imshow(mapplot.T, extent=extend, interpolation='none', cmap=cmap, norm=norm)
-        fig.set_xlabel('E/m')
-        fig.set_ylabel('N/m')
-
+        fig=choose_case()
         dev=MsgDevice()
         dev.open()
-        dev.sub_connect('tcp://127.0.0.1:55007')
+        if sys.argv[1] == 'simulation':
+            dev.sub_connect('tcp://127.0.0.1:55007')
+        else:
+            dev.sub_connect('tcp://192.168.1.150:55007')
         dev.sub_connect('tcp://127.0.0.1:55008')
         dev.sub_connect('tcp://127.0.0.1:55009')
         dev.sub_add_url('USV150.state', default_values=(0, 0, 0, 0, 0, 0))

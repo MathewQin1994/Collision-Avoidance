@@ -12,6 +12,16 @@ class Map:
             x2=min(config[1]+config[3],self.size[1])
             y2=min(config[0]+config[2], self.size[0])
             self.map[y1:y2+1,x1:x2+1]=1
+        if type=='circle':
+            #config=(y,x,r)
+            y,x,r=config
+            y=y-self.offset[0]
+            x=x-self.offset[1]
+            yrange=(max(y-r,0),min(y+r,self.map.shape[0]))
+            for i in range(yrange[0],yrange[1]):
+                d=int(round(np.sqrt(r**2-(y-i)**2)))
+                xrange=(max(x-d,0),min(x+d,self.map.shape[1]))
+                self.map[i,xrange[0]:xrange[1]]=1
 
     def load_map(self,map,resolution,offset=(0,0)):
         self.map=map
@@ -52,9 +62,11 @@ def generate_do_trajectory(x0,y0,yaw,u,t):
 
 if __name__=="__main__":
     map_size=(100,100)
-    rectangle_static_obstacles=((20,20,10,30),(50,20,30,10),(50,50,30,10))
+    # rectangle_static_obstacles=((20,20,10,30),(50,20,30,10),(50,50,30,10))
     # rectangle_static_obstacles = ((20, 50, 40, 10), (50, 20, 10, 30))
     # rectangle_static_obstacles=((90,150,110,50),(250,150,100,50),(150,250,100,100))
+    rectangle_static_obstacles=()
+    circle_static_obstacles=((40,60,10),)
     map=Map()
     map.new_map(map_size,1,offset=(0,0))
 
@@ -64,7 +76,10 @@ if __name__=="__main__":
         map.add_static_obstacle(type="rectangle",config=ob)
         rect = patches.Rectangle((ob[0],ob[1]), ob[2], ob[3], color='y')
         fig.add_patch(rect)
-    map.expand(2)
+    for ob in circle_static_obstacles:
+        map.add_static_obstacle(type="circle",config=ob)
+    # map.expand(2)
+    plt.imshow(map.map)
     plt.show()
 
 

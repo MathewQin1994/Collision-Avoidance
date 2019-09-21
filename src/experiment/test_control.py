@@ -41,7 +41,7 @@ def trajectory_following(dev):
             p=0
         target_x, target_y, target_yaw, target_speed, target_t = target_points[p]
         propeller_speed = target_speed * 19.56*60
-        # print(target_x, target_y, target_yaw, target_speed, target_t)
+        print(target_x, target_y, target_yaw, target_speed, target_t)
         while time.time()<target_t:
             # print(target_x, target_y, target_yaw, target_speed, target_t)
             with t:
@@ -49,8 +49,6 @@ def trajectory_following(dev):
                 if idx!=idx_old:
                     break
                 s_ob = dev.sub_get('USV150.state')
-                print("t_x:{:.2f},t_y:{:.2f},t_yaw:{:.2f},t_t:{:.2f},x:{:.2f},y:{:.2f},yaw:{:.2f},t:{:.2f}".format(
-                    target_x,target_y,target_yaw,target_t,s_ob[3],s_ob[4],s_ob[5],time.time()))
                 beta=np.arctan2(target_y-s_ob[4],target_x-s_ob[3])
                 if yawRange(target_yaw-beta)>0:
                     coe=1
@@ -83,6 +81,52 @@ def body2NE(posx,posy,yaw,dx,dy,dyaw):
     return x1,y1,yaw1
 
 
+def test_control(dyaw,target_speed,dev):
+    delta=10
+    step=0
+    for i in range(5):
+        s = dev.sub_get('USV150.state')
+        time.sleep(0.1)
+    d = (3 / pi * abs(dyaw) + 2) * target_speed / 0.8
+    target_x,target_y,target_yaw=body2NE(s[3],s[4],s[5],d,0,dyaw)
+    # print(target_x,target_y,target_yaw)
+    propeller_speed = target_speed * 19.56*60
+    t=PeriodTimer(dt)
+    t.start()
+    while True:
+        with t:
+            s_ob = list(dev.sub_get('USV150.state'))
+            print("t_x:{:.2f},t_y:{:.2f},t_yaw:{:.2f},x:{:.2f},y:{:.2f},yaw:{:.2f}".format(
+                target_x, target_y, target_yaw, s_ob[3], s_ob[4], s_ob[5]))
+            dr.write(s_ob+[time.time()])
+            if step==0 and t.i>100:
+                d = (3 / pi * abs(dyaw) + 2) * target_speed / 0.8
+                target_x, target_y, target_yaw = body2NE(s_ob[3], s_ob[4], s_ob[5], d, 0, dyaw)
+                step=1
+            beta = np.arctan2(target_y - s_ob[4], target_x - s_ob[3])
+            if yawRange(target_yaw - beta) > 0:
+                coe = 1
+            else:
+                coe = -1
+            e = coe * abs(cos(target_yaw) * (s_ob[4] - target_y - tan(target_yaw) * (s_ob[3] - target_x)))
+            alpha = np.arctan2(e, delta)
+            # print(target_yaw,alpha,s_ob[5],e)
+            d_pro = speed_control.update(target_speed - s_ob[0])
+            diff = yaw_control.update(yawRange(target_yaw - alpha - s_ob[5]))
+            n1 = propeller_speed + d_pro + diff * 480 / propeller_speed
+            n2 = propeller_speed + d_pro - diff * 480 / propeller_speed
+            if n1 > 1500:
+                n1 = 1500
+            elif n1 < -1500:
+                n1 = -1500
+            if n2 > 1500:
+                n2 = 1500
+            elif n2 < -1500:
+                n2 = -1500
+            # print(n1,n2,s_ob)
+            dev.pub_set1('pro.left.speed', n1)
+            dev.pub_set1('pro.right.speed', n2)
+
 if __name__=='__main__':
     try:
         dev=MsgDevice()
@@ -96,10 +140,15 @@ if __name__=='__main__':
         dev.sub_add_url('USV150.state',default_values=(0,0,0,0,0,0))
         dev.sub_add_url('idx-length',default_values=[0,0])
         dev.sub_add_url('target_points', default_values=[0]*(max_length*5))
-        trajectory_following(dev)
+        # trajectory_following(dev)
+        filename = os.path.split(__file__)[-1].split(".")[0] + time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime(time.time()))+'.txt'
+        filename='../data_record/{}'.format(filename)
+        dr = DataRecord(filename)
+        test_control(pi/4,0.8,dev)
     except (KeyboardInterrupt,Exception) as e:
         dev.pub_set1('pro.left.speed', 0)
         dev.pub_set1('pro.right.speed', 0)
+        dr.close()
         time.sleep(0.5)
         dev.close()
         raise

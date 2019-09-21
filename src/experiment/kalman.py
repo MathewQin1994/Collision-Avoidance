@@ -65,7 +65,7 @@ class EKF:
             return ax, ay, ar
         u, v, r, x, y, yaw = s
         if self.use_dynamic_model:
-            ax, ay, ar = acceleration(u, v, r, n1, n2)
+            ax, ay, ar = acceleration(u, v, r, n1/60, n2/60)
         else:
             ax,ay,ar=0,0,0
         u1=u+ax*dt
@@ -154,14 +154,15 @@ def initialize():
     ekf=EKF()
     return interface,ekf
 
-def update():
+def update(interface,ekf):
     data = interface.receive('ahrs.yaw', 'ahrs.yaw_speed', 'gps.posx', 'gps.posy', 'gps.hspeed', 'gps.track',
                              'left.Motor_SpeedCalc', 'right.Motor_SpeedCalc')
     yaw,r,x,y,hspeed,track,left,right=data
+    left=-left
     yaw=yaw-5*pi/180
     uo=hspeed*cos(track)
     vo=hspeed*sin(track)
-    ekf.update(np.array([uo,vo,r,x,y,yaw]),left/60,right/60)
+    ekf.update(np.array([uo,vo,r,x,y,yaw]),left,right)
     dic={'USV150.state':ekf.x.tolist(),'left.Motor_SpeedCalc':left,'right.Motor_SpeedCalc':right}
     interface.publish(dic)
     print("left:{:.2f},right:{:.2f},u:{:.2f},v:{:.2f},r:{:.2f},x:{:.2f},y:{:.2f},yaw:{:.2f}".format(left, right, *ekf.x.tolist()))
@@ -173,15 +174,12 @@ if __name__=="__main__":
         t.start()
         while True:
             with t:
-                update()
+                update(interface,ekf)
     except (KeyboardInterrupt,Exception) as e:
         interface.dev.close()
         raise
     finally:
         pass
-
-
-    # test_EKF()
 
 
 

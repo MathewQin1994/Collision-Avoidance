@@ -2,7 +2,7 @@
 import sys
 sys.path.append("../..")
 import numpy as np
-from numpy import sin,cos
+from numpy import sin,cos,pi
 from src.tools.msgdev import PeriodTimer,MsgDevice
 import time
 
@@ -50,27 +50,31 @@ def pub_do_tra(dev,do_tra):
     do1.extend([0] * (max_length * (5*3) - len(do1)))
     dev.pub_set1('do_num', do_tra.shape[0])
     dev.pub_set('do_tra',do1)
-    for i in range(do_tra.shape[0]):
-        print('do{},x:{},y:{}'.format(i,do_tra[i,0,0],do_tra[i,0,1]))
+    # for i in range(do_tra.shape[0]):
+    #     print('do{},x:{},y:{}'.format(i,do_tra[i,0,0],do_tra[i,0,1]))
 
 def generate_do_tra_true():
 # 他船参数和规划器
     do_s0=dict()
-    do_dp = dict()
     do_tra_true = dict()
     do_goal=dict()
-
-    do_s0['1']=(71, 2, 1.57, 0.8, 0)
-    do_goal['1'] = [(87,22),(53/2, 121/2)]
-    do_s0['2']=(40/2, 114/2, 0, 0.8, 0)
-    do_goal['2'] = [(56,48),(76, 99)]
-    # do_s0['3'] = (159/2, 155/2, pi, 0.4, 0)
-    # do_goal['3'] = (99/2, 93/2)
-    # do_s0['4']=(75, 78, -pi/2, 0.4, 0)
-    # do_goal['4'] = (52, 49)
-
+    case=sys.argv[1]
+    if case=='case1':
+        do_s0['1']=(71, 2, 1.57, 0.8, 0)
+        do_goal['1'] = [(87,22),(53/2, 121/2)]
+        do_s0['2']=(40/2, 114/2, 0, 0.8, 0)
+        do_goal['2'] = [(56,48),(76, 99)]
+    elif case=='case2':
+        do_s0['1']=(45, 45, 0.86, 0.8, 0)
+        do_goal['1'] = [(100, 117)]
+    elif case=='case3':
+        do_s0['1'] = (17, 51, pi, 0.6, 0)
+        do_goal['1'] = [(-28, 42)]
+        do_s0['2'] = (24, -40, 0, 0.6, 0)
+        do_goal['2'] = [(5, 63)]
+    else:
+        raise
     for key in do_s0:
-        # do_tra=do_tra_predict(do_s0['2'],do_goal['2'])
         do_tra_true[key] = do_tra_predict(do_s0[key],do_goal[key])
     return do_tra_true
 
@@ -82,7 +86,7 @@ if __name__=='__main__':
         dev=MsgDevice()
         dev.open()
         dev.sub_connect('tcp://127.0.0.1:55001')  # receive rpm from joystick
-        dev.sub_add_url('js.autoctrl',default_values=1)
+        dev.sub_add_url('js.autoctrl',default_values=0)
         dev.pub_bind('tcp://0.0.0.0:55009')
         do_tra_true=None
         t = PeriodTimer(dt)

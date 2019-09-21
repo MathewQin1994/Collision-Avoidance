@@ -16,7 +16,7 @@ class MsgDeviceError(Exception):
 	pass
 
 
-if sys.platform == 'linux2':
+if sys.platform == 'linux':
 	# time() is not perfect wall-time clock, but quicker than ctype clock_gettime()
 	monoclock = time.time
 else:

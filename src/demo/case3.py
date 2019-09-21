@@ -40,9 +40,9 @@ if __name__=="__main__":
 
     # 地图、起点、目标
     static_map = Map()
-    static_map.load_map(np.loadtxt('../map/static_map1.txt', dtype=np.int8), resolution=0.5)
-    s0 = tuple(np.array((88, 103, 0.86-pi, 0, 0), dtype=np.float64))
-    sG = tuple(np.array((41/2, 71/2, pi, 0.8, 0), dtype=np.float64))
+    static_map.load_map(np.loadtxt('../map/static_map3.txt', dtype=np.int8), resolution=1,offset=(-63,-54))
+    s0 = tuple(np.array((-29, 39, 0, 0, 0), dtype=np.float64))
+    sG = tuple(np.array((26, -40, pi, 0.8, 0), dtype=np.float64))
     # s0 = tuple(np.array((35/2, 114/2, 0, 0.8, 0), dtype=np.float64))
     # sG = tuple(np.array((36, 46), dtype=np.float64))
 
@@ -87,39 +87,11 @@ if __name__=="__main__":
     do_tra_true = dict()
     do_goal=dict()
 
-    # do_s0['1']=(190/2, 2/2, 1.57, 0.8, 0)
-    # do_goal['1'] = (53/2, 121/2)
-    # do_s0['2']=(40/2, 114/2, 0, 0.8, 0)
-    # do_goal['2'] = (76, 99)
-    # do_s0['3'] = (159/2, 155/2, pi, 0.4, 0)
-    # do_goal['3'] = (99/2, 93/2)
-    # do_s0['4']=(75, 78, -pi/2, 0.4, 0)
-    # do_goal['4'] = (52, 49)
+    do_s0['1'] = (17, 51, pi, 0.6, 0)
+    do_goal['1'] = [(-28, 42)]
+    do_s0['2'] = (24, -40, 0, 0.6, 0)
+    do_goal['2'] = [(5, 63)]
 
-
-    # for key in do_s0:
-    #     do_dp[key] = DeliberativePlanner(
-    #         static_map,
-    #         resolution_pos,
-    #         resolution_time,
-    #         do_s0[key][3],
-    #         '../primitive/control_primitives{}.npy'.format(do_s0[key][3]),
-    #         e)
-    #     do_tra_true[key]=np.array(do_dp[key].start(do_s0[key],do_goal[key]))
-
-
-    # simulation(s0, sG, dp, do_dp,fig,do_tra_true,do_goal,predict_time=6)
-
-
-    do_s0['1'] = (71, 2, 1.57, 0.8, 0)
-    do_goal['1'] = [(87, 22), (53 / 2, 121 / 2)]
-    do_s0['2'] = (24, 54, 0, 0.8, 0)
-    do_goal['2'] = [(58, 49), (79, 95)]
-
-    # do_s0['3'] = (93, 44, pi, 0.4, 0)
-    # do_goal['3'] = [(66, 59),(57,41)]
-    # do_s0['4']=(75, 78, -pi/2, 0.4, 0)
-    # do_goal['4'] = (52, 49)
 
     for key in do_s0:
         do_tra_true[key] = do_tra_predict(do_s0[key], do_goal[key])

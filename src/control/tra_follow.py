@@ -20,20 +20,21 @@ def acceleration(u,v,r,n1,n2):
     return ax,ay,ar
 
 def state_update(s,n1,n2):
+    n1,n2=n1/60,n2/60
     u, v, r, x, y, yaw=s
     ax,ay,ar=acceleration(u,v,r,n1,n2)
-    u1=u+ax*dt+0.01*np.random.randn()
-    v1=v+ay*dt+0.01*np.random.randn()
-    r1=r+ar*dt+0.005*np.random.randn()
-    # u1=u+ax*dt
-    # v1=v+ay*dt
-    # r1=r+ar*dt
-    x1=x+(u*cos(yaw)-v*sin(yaw))*dt+0.01*np.random.randn()
-    y1=y+(u*sin(yaw)+v*cos(yaw))*dt+0.01*np.random.randn()
-    yaw1=yaw+r*dt+0.01*np.random.randn()
-    # x1=x+(u*cos(yaw)-v*sin(yaw))*dt
-    # y1=y+(u*sin(yaw)+v*cos(yaw))*dt
-    # yaw1=yaw+r*dt
+    # u1=u+ax*dt+0.01*np.random.randn()
+    # v1=v+ay*dt+0.01*np.random.randn()
+    # r1=r+ar*dt+0.005*np.random.randn()
+    u1=u+ax*dt
+    v1=v+ay*dt
+    r1=r+ar*dt
+    # x1=x+(u*cos(yaw)-v*sin(yaw))*dt+0.01*np.random.randn()
+    # y1=y+(u*sin(yaw)+v*cos(yaw))*dt+0.01*np.random.randn()
+    # yaw1=yaw+r*dt+0.01*np.random.randn()
+    x1=x+(u*cos(yaw)-v*sin(yaw))*dt
+    y1=y+(u*sin(yaw)+v*cos(yaw))*dt
+    yaw1=yaw+r*dt
     return (u1,v1,r1,x1,y1,yaw1)
 
 def yawRange(x):
@@ -46,9 +47,9 @@ def yawRange(x):
 def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False):
     s=s0
     primitives_state=[]
-    yaw_control=PIDcontroller(800/60,3/60,10/60,dt)
-    speed_control=PIDcontroller(3200/60,3/60,10/60,dt)
-    propeller_speed = target_speed * 19.56
+    yaw_control=PIDcontroller(800,3,10,dt)
+    speed_control=PIDcontroller(3200,3,10,dt)
+    propeller_speed = target_speed * 19.56*60
     d=(3/pi*abs(target_yaw)+2)*target_speed/0.8
     delta=10
     if plot:
@@ -73,16 +74,16 @@ def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False)
 
         d_pro=speed_control.update(target_speed-s[0])
         diff=yaw_control.update(yawRange(target_yaw-alpha-s[5]))
-        n1=propeller_speed +d_pro+diff*8/propeller_speed
-        n2=propeller_speed +d_pro-diff*8/propeller_speed
-        if n1>25:
-            n1=25
-        elif n1<-25:
-            n1=-25
-        if n2>25:
-            n2=25
-        elif n2<-25:
-            n2=-25
+        n1=propeller_speed +d_pro+diff*480/propeller_speed
+        n2=propeller_speed +d_pro-diff*480/propeller_speed
+        if n1>1500:
+            n1=1500
+        elif n1<-1500:
+            n1=-1500
+        if n2>1500:
+            n2=1500
+        elif n2<-1500:
+            n2=-1500
         # print(n1,n2)
         l +=s[0]*dt
         s=state_update(s,n1,n2)
@@ -106,7 +107,7 @@ def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False)
 
 def get_all_control_primitives(save=True):
     # time_set=np.array([10,5],dtype=np.int)
-    u=1.2
+    u=0.8
     control_primitives=dict()
     action_time=6
     control_primitives[u]=dict()
@@ -120,7 +121,7 @@ def get_all_control_primitives(save=True):
     yaw_set = np.array([-pi/3,-pi / 6,pi / 6, pi / 3], dtype=np.float64)
     for yaw in yaw_set:
         key = (action_time, np.int(np.round(yaw * 180 / pi)))
-        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=True),dtype=np.float64)
+        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
 
     action_time = 6
     control_primitives[0.0] = dict()
@@ -154,8 +155,8 @@ def trajectory_following(s0,target_points,fig=None):
 
     s=s0
     s=(s0[0]+0.1,s0[1]+0.1,s0[2]+0.01,s0[3]+1,s0[4]+1,s0[5]+0.1)
-    yaw_control=PIDcontroller(800/60,3/60,10/60,dt)
-    speed_control=PIDcontroller(3200/60,3/60,10/60,dt)
+    yaw_control=PIDcontroller(800,3,10,dt)
+    speed_control=PIDcontroller(3200,3,10,dt)
 
     # d=3/pi*target_yaw+2
     delta=10
@@ -164,7 +165,7 @@ def trajectory_following(s0,target_points,fig=None):
     p=0
     while p<len(target_points):
         target_x, target_y, target_yaw, target_speed, target_t = target_points[p]
-        propeller_speed = target_speed * 19.56
+        propeller_speed = target_speed * 19.56*60
         if fig:
             fig.plot(target_y, target_x, "or", markersize=5)
         # while np.sqrt((s[3]-target_x)**2+(s[4]-target_y)**2)>0.1:
@@ -182,16 +183,16 @@ def trajectory_following(s0,target_points,fig=None):
             # print(target_yaw,alpha,s_ob[5],e)
             d_pro = speed_control.update(target_speed - s_ob[0])
             diff = yaw_control.update(yawRange(target_yaw - alpha - s_ob[5]))
-            n1 = propeller_speed + d_pro + diff * 8 / propeller_speed
-            n2 = propeller_speed + d_pro - diff * 8 / propeller_speed
-            if n1 > 25:
-                n1 = 25
-            elif n1 < -25:
-                n1 = -25
-            if n2 > 25:
-                n2 = 25
-            elif n2 < -25:
-                n2 = -25
+            n1 = propeller_speed + d_pro + diff * 480 / propeller_speed
+            n2 = propeller_speed + d_pro - diff * 480 / propeller_speed
+            if n1 > 1500:
+                n1 = 1500
+            elif n1 < -1500:
+                n1 = -1500
+            if n2 > 1500:
+                n2 = 1500
+            elif n2 < -1500:
+                n2 = -1500
             # print(n1,n2)
             # l += s[0] * dt
             s = state_update(s, n1, n2)
@@ -267,9 +268,9 @@ def zuotu(save=False):
 
 def zuotu1(s0,target_speed,target_yaw,action_time):
 
-    yaw_control=PIDcontroller(800/60,0/60,10/60,dt)
-    speed_control=PIDcontroller(3200/60,3/60,10/60,dt)
-    propeller_speed = target_speed * 19.56
+    yaw_control=PIDcontroller(800,3,10,dt)
+    speed_control=PIDcontroller(3200,3,10,dt)
+    propeller_speed = target_speed * 19.56*60
     d=(3/pi*abs(target_yaw)+2)*target_speed/0.8
     delta=10
     fig=plt.gca()
@@ -292,16 +293,16 @@ def zuotu1(s0,target_speed,target_yaw,action_time):
 
             d_pro=speed_control.update(target_speed-s[0])
             diff=yaw_control.update(yawRange(target_yaw-alpha-s[5]))
-            n1=propeller_speed +d_pro+diff*8/propeller_speed
-            n2=propeller_speed +d_pro-diff*8/propeller_speed
-            if n1>25:
-                n1=25
-            elif n1<-25:
-                n1=-25
-            if n2>25:
-                n2=25
-            elif n2<-25:
-                n2=-25
+            n1 = propeller_speed + d_pro + diff * 480 / propeller_speed
+            n2 = propeller_speed + d_pro - diff * 480 / propeller_speed
+            if n1 > 1500:
+                n1 = 1500
+            elif n1 < -1500:
+                n1 = -1500
+            if n2 > 1500:
+                n2 = 1500
+            elif n2 < -1500:
+                n2 = -1500
             # print(n1,n2)
             l +=s[0]*dt
             s=state_update(s,n1,n2)
@@ -315,6 +316,7 @@ def zuotu1(s0,target_speed,target_yaw,action_time):
             i+=1
         primitives_state=np.array(primitives_state)
         fig.plot(primitives_state[:,1],primitives_state[:,0],c)
+    plt.show()
         # print("u0:{} u:{} yaw:{} distance:{} time:{}".format(s0[0],target_speed,target_yaw,np.sqrt(s[3]**2+s[4]**2),i*dt))
 
 
