@@ -9,7 +9,7 @@ import time
 from src.control.PID import PIDcontroller
 # from src.primitive.Trimaran import state_update,dt
 
-dt=0.1
+dt=0.2
 
 def acceleration(u,v,r,n1,n2):
     ax=(58.0*r*v-6.7*u*abs(u)+15.9*r**2+0.01205*
@@ -151,6 +151,12 @@ def control_primitives_visual(control_primitives):
             a[i].annotate(str(key),(c[-1,1],c[-1,0]))
     plt.show()
 
+def cal_target_yaw_t(x0,y0,target_yaw,xob,yob,delta):
+    x1=sin(target_yaw)*cos(target_yaw)*(yob-y0)+cos(target_yaw)**2*xob+sin(target_yaw)**2*x0+delta*cos(target_yaw)
+    y1=sin(target_yaw)*cos(target_yaw)*(xob-x0)+cos(target_yaw)**2*y0+sin(target_yaw)**2*yob+delta*sin(target_yaw)
+    target_yaw_t=np.arctan2(y1-yob,x1-xob)
+    return target_yaw_t
+
 def trajectory_following(s0,target_points,fig=None):
 
     s=s0
@@ -169,20 +175,22 @@ def trajectory_following(s0,target_points,fig=None):
         if fig:
             fig.plot(target_y, target_x, "or", markersize=5)
         # while np.sqrt((s[3]-target_x)**2+(s[4]-target_y)**2)>0.1:
-        while i<target_t*10:
+        while i<target_t/dt:
             s_ob = (
             s[0] + 0.005 * np.random.randn(), s[1] + 0.005 * np.random.randn(), s[2] + 0.001 * np.random.randn(),
             s[3] + 0.05 * np.random.randn(), s[4] + 0.05 * np.random.randn(), s[5] + 0.01 * np.random.randn())
-            beta=np.arctan2(target_y-s_ob[4],target_x-s_ob[3])
-            if yawRange(target_yaw-beta)>0:
-                coe=1
-            else:
-                coe=-1
-            e=coe*abs(cos(target_yaw)*(s_ob[4]-target_y-tan(target_yaw)*(s_ob[3]-target_x)))
-            alpha = np.arctan2(e, delta)
-            # print(target_yaw,alpha,s_ob[5],e)
+            # beta=np.arctan2(target_y-s_ob[4],target_x-s_ob[3])
+            # if yawRange(target_yaw-beta)>0:
+            #     coe=1
+            # else:
+            #     coe=-1
+            # e=coe*abs(cos(target_yaw)*(s_ob[4]-target_y-tan(target_yaw)*(s_ob[3]-target_x)))
+            # alpha = np.arctan2(e, delta)
+            # # print(target_yaw,alpha,s_ob[5],e)
+            target_yaw_t = cal_target_yaw_t(target_x, target_y, target_yaw, s_ob[3], s_ob[4], delta)
             d_pro = speed_control.update(target_speed - s_ob[0])
-            diff = yaw_control.update(yawRange(target_yaw - alpha - s_ob[5]))
+            diff = yaw_control.update(yawRange(target_yaw_t-s_ob[5]))
+            print(target_yaw,target_yaw_t,s_ob[5],diff)
             n1 = propeller_speed + d_pro + diff * 480 / propeller_speed
             n2 = propeller_speed + d_pro - diff * 480 / propeller_speed
             if n1 > 1500:

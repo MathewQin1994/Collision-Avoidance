@@ -8,7 +8,7 @@ class PIDcontroller:
         self.ITerm=0.0
         self.DTerm=0.0
         self.last_e=0.0
-        self.window=20
+        self.window=1200
 
     def update(self,e):
         self.PTerm=e
