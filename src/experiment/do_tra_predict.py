@@ -8,6 +8,22 @@ import time
 
 max_length=200
 dt=1
+
+def extend(tra):
+    if tra.shape[0]==0:
+        return tra
+    elif tra.shape[0] > 200:
+        tra = tra[:200, :]
+    elif tra.shape[0] < 200:
+        add = np.zeros((200 - tra.shape[0], 5))
+        add[:, 0] = tra[-1, 0]
+        add[:, 1] = tra[-1, 1]
+        add[:, 2] = tra[-1, 2]
+        add[:, 4] = np.linspace(tra[-1, -1] + 1, tra[-1, -1] + 200 - tra.shape[0], 200 - tra.shape[0])
+        tra = np.vstack((tra, add))
+
+    return tra
+
 def get_virtual_do_tra(do_tra_true,start_time):
     do_tra=[]
     for key in do_tra_true:
@@ -16,15 +32,7 @@ def get_virtual_do_tra(do_tra_true,start_time):
             tra=do_tra_true[key][idx:,:]
         else:
             tra=do_tra_true[key][-1:,:]
-        if tra.shape[0] > 200:
-            tra = tra[:200, :]
-        elif tra.shape[0] < 200:
-            add = np.zeros((200 - tra.shape[0], 5))
-            add[:, 0] = tra[-1, 0]
-            add[:, 1] = tra[-1, 1]
-            add[:, 2] = tra[-1, 2]
-            add[:, 4] = np.linspace(tra[-1,-1]+1,tra[-1,-1]+200 - tra.shape[0],200 - tra.shape[0])
-            tra = np.vstack((tra, add))
+        tra=extend(tra)
         do_tra.append(tra)
     do_tra=np.array(do_tra)
     return do_tra
@@ -35,7 +43,7 @@ def do_tra_predict(s0,target_points):
         d=np.sqrt((s0[0]-s1[0])**2+(s0[1]-s1[1])**2)
         t=round(d/speed)-1
         yaw=np.arctan2(s1[1]-s0[1],s1[0]-s0[0])
-        tra = np.zeros((int(t), 5))
+        tra = np.zeros((max(int(t),0), 5))
         for i in range(tra.shape[0]):
             tra[i, :] = [s0[0] + i * speed* cos(yaw),s0[1] + i * speed * sin(yaw), yaw, speed, i]
         return tra
@@ -48,10 +56,13 @@ def do_tra_predict(s0,target_points):
 def pub_do_tra(dev,do_tra):
     do1 = do_tra.flatten().tolist()
     do1.extend([0] * (max_length * (5*3) - len(do1)))
-    dev.pub_set1('do_num', do_tra.shape[0])
-    dev.pub_set('do_tra',do1)
-    # for i in range(do_tra.shape[0]):
-    #     print('do{},x:{},y:{}'.format(i,do_tra[i,0,0],do_tra[i,0,1]))
+    if do_tra.shape[1]==0:
+        dev.pub_set1('do_num', 0)
+        dev.pub_set('do_tra', do1)
+    else:
+        dev.pub_set1('do_num', do_tra.shape[0])
+        dev.pub_set('do_tra',do1)
+
 
 def generate_do_tra_true():
 # 他船参数和规划器
@@ -78,6 +89,38 @@ def generate_do_tra_true():
         do_tra_true[key] = do_tra_predict(do_s0[key],do_goal[key])
     return do_tra_true
 
+def virtual_do_tra_predict(dev,t):
+    do_tra_true = None
+    while True:
+        with t:
+            autoctrl = dev.sub_get1('js.autoctrl')
+            # print(autoctrl)
+            if autoctrl:
+                if do_tra_true is None:
+                    do_tra_true = generate_do_tra_true()
+                start_time = time.time()
+                do_tra = get_virtual_do_tra(do_tra_true, start_time)
+                pub_do_tra(dev, do_tra)
+
+def real_do_tra_predict(dev,t):
+    if sys.argv[1] == 'simulation':
+        dev.sub_connect('tcp://127.0.0.1:55207')
+        dev.sub_connect('tcp://127.0.0.2:55202')
+    else:
+        dev.sub_connect('tcp://192.168.1.152:55207')
+        dev.sub_connect('tcp://192.168.1.152:55202')
+    dev.sub_add_url('USV150.state', default_values=(0, 0, 0, 0, 0, 0))
+    dev.sub_add_url('target.point', default_values=(0, 0))
+    while True:
+        with t:
+            s_ob = dev.sub_get('USV150.state')
+            target_points=[dev.sub_get('target.point')]
+            s0=(s_ob[3],s_ob[4],s_ob[5],0.5,0)
+            print(s_ob,target_points)
+            do_tra=do_tra_predict(s0,target_points)
+            do_tra=extend(do_tra)
+            do_tra=do_tra.reshape((1,-1,5))
+            pub_do_tra(dev, do_tra)
 
 
 
@@ -88,18 +131,13 @@ if __name__=='__main__':
         dev.sub_connect('tcp://127.0.0.1:55001')  # receive rpm from joystick
         dev.sub_add_url('js.autoctrl',default_values=0)
         dev.pub_bind('tcp://0.0.0.0:55009')
-        do_tra_true=None
+
         t = PeriodTimer(dt)
         t.start()
-        while True:
-            with t:
-                autoctrl = dev.sub_get1('js.autoctrl')
-                if autoctrl:
-                    if do_tra_true is None:
-                        do_tra_true=generate_do_tra_true()
-                    start_time=time.time()
-                    do_tra = get_virtual_do_tra(do_tra_true, start_time)
-                    pub_do_tra(dev,do_tra)
+        if sys.argv[1] in {'simulation','real'}:
+            real_do_tra_predict(dev, t)
+        else:
+            virtual_do_tra_predict(dev, t)
     except (KeyboardInterrupt,Exception) as e:
         dev.pub_set1('do_num', 0)
         time.sleep(0.5)

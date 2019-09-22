@@ -12,6 +12,7 @@ import logging
 from collections import deque
 import time
 
+dt=0.5
 colors = ['white', 'gold', 'orange', 'blue', 'green', 'purple']
 bounds = [0,1,2,3,4,5,6]
 cmap = mpl.colors.ListedColormap(colors)
@@ -28,14 +29,14 @@ def update_state(dev,fig,plot_lines):
     print("u:{:.2f},v:{:.2f},r:{:.2f},x:{:.2f},y:{:.2f},yaw:{:.2f},".format(*s_ob))
     x_q.append(s_ob[3])
     y_q.append(s_ob[4])
-    if len(x_q)>60:
+    if len(x_q)>60/dt:
         x_q.popleft()
         y_q.popleft()
     # global plot_lines
     while len(plot_lines)>0:
         fig.lines.remove(plot_lines.pop()[0])
     plot_lines.append(fig.plot(y_q,x_q,'b'))
-    plot_lines.append(fig.plot(s_ob[4], s_ob[3], 'bv'))
+    plot_lines.append(fig.plot(s_ob[4], s_ob[3], 'b*'))
 
 
 def update_planning(dev,fig,plot_lines):
@@ -101,6 +102,8 @@ def choose_case():
         static_map.load_map(np.loadtxt('../map/static_map2.txt', dtype=np.int8), resolution=0.5)
     elif case=='case3':
         static_map.load_map(np.loadtxt('../map/static_map3.txt', dtype=np.int8), resolution=1, offset=(-63, -54))
+    elif case=='case0':
+        static_map.new_map(size=(100,100),offset=(-63, -54))
     else:
         raise
     fig = plt.gca()
@@ -140,7 +143,7 @@ if __name__=='__main__':
         dev.sub_add_url('do_tra', default_values=[0] * (max_length * 5 * 3))
         dev.sub_add_url('do_num')
         time.sleep(0.5)
-        t=PeriodTimer(1)
+        t=PeriodTimer(dt)
         t.start()
         plot_lines_state=[]
         plot_lines_tra=[]

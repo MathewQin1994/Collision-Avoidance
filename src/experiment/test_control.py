@@ -9,7 +9,8 @@ from src.tools.data_record import DataRecord
 import time
 import os
 max_length=200
-dt=0.1
+dt=0.2
+c_speed2motor=19.56
 yaw_control = PIDcontroller(800, 3, 10, dt)
 speed_control = PIDcontroller(3200, 3, 10, dt)
 
@@ -42,24 +43,23 @@ def test_control(dyaw,target_speed,dev):
     d = (3 / pi * abs(dyaw) + 2) * target_speed / 0.8
     target_x,target_y,target_yaw=body2NE(s[3],s[4],s[5],d,0,dyaw)
     # print(target_x,target_y,target_yaw)
-    propeller_speed = target_speed * 19.56*60
+    propeller_speed = target_speed * c_speed2motor*60
     t=PeriodTimer(dt)
     t.start()
     while True:
         with t:
             s_ob = list(dev.sub_get('USV150.state'))
-            print("t_x:{:.2f},t_y:{:.2f},t_yaw:{:.2f},x:{:.2f},y:{:.2f},yaw:{:.2f}".format(
-                target_x, target_y, target_yaw, s_ob[3], s_ob[4], s_ob[5]))
             dr.write(s_ob+[time.time()])
             if step==0 and t.i>100:
                 d = (3 / pi * abs(dyaw) + 2) * target_speed / 0.8
                 target_x, target_y, target_yaw = body2NE(s_ob[3], s_ob[4], s_ob[5], d, 0, dyaw)
                 step=1
             target_yaw_t = cal_target_yaw_t(target_x, target_y, target_yaw, s_ob[3], s_ob[4], delta)
+            e = abs(cos(target_yaw) * (s_ob[4] - target_y - tan(target_yaw) * (s_ob[3] - target_x)))
             d_pro = speed_control.update(target_speed - s_ob[0])
             diff = yaw_control.update(yawRange(target_yaw_t - s_ob[5]))
-            n1 = propeller_speed + d_pro + diff * 480 / propeller_speed
-            n2 = propeller_speed + d_pro - diff * 480 / propeller_speed
+            n1 = propeller_speed + d_pro + diff / 2
+            n2 = propeller_speed + d_pro - diff / 2
             if n1 > 1500:
                 n1 = 1500
             elif n1 < -1500:
@@ -71,6 +71,7 @@ def test_control(dyaw,target_speed,dev):
             # print(n1,n2,s_ob)
             dev.pub_set1('pro.left.speed', n1)
             dev.pub_set1('pro.right.speed', n2)
+            print("e:{:.2f},t_yaw:{:.2f},t_yaw_t:{:.2f},yaw:{:.2f},left:{:.0f},right:{:.0f}".format(e,target_yaw,target_yaw_t,s_ob[5],n1,n2))
 
 if __name__=='__main__':
     try:
@@ -85,11 +86,12 @@ if __name__=='__main__':
         dev.sub_add_url('USV150.state',default_values=(0,0,0,0,0,0))
         dev.sub_add_url('idx-length',default_values=[0,0])
         dev.sub_add_url('target_points', default_values=[0]*(max_length*5))
-        # trajectory_following(dev)
-        filename = os.path.split(__file__)[-1].split(".")[0] + time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime(time.time()))+'.txt'
+
+        dyaw=sys.argv[2]
+        filename = os.path.split(__file__)[-1].split(".")[0] + time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime(time.time()))+'_'+dyaw+'.txt'
         filename='../data_record/{}'.format(filename)
         dr = DataRecord(filename)
-        test_control(pi/4,0.8,dev)
+        test_control(int(dyaw)/180*pi,0.8,dev)
     except (KeyboardInterrupt,Exception) as e:
         dev.pub_set1('pro.left.speed', 0)
         dev.pub_set1('pro.right.speed', 0)

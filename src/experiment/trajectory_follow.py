@@ -9,7 +9,8 @@ from src.tools.data_record import DataRecord
 import time
 import os
 max_length=200
-dt=0.1
+dt=0.2
+c_speed2motor=19.56
 yaw_control = PIDcontroller(800, 3, 10, dt)
 speed_control = PIDcontroller(3200, 3, 10, dt)
 
@@ -30,6 +31,7 @@ def trajectory_following(dev):
     delta=10
     p=0
     idx_old=-1
+    old_target_x, old_target_y, old_target_t = 0.0,0.0,0.0
     t=PeriodTimer(dt)
     t.start()
     while True:
@@ -45,9 +47,16 @@ def trajectory_following(dev):
             target_points=np.array(dev.sub_get('target_points')).reshape(max_length,5)
             target_points=target_points[:length,:]
             p=0
+
+        s_ob = dev.sub_get('USV150.state')
         target_x, target_y, target_yaw, target_speed, target_t = target_points[p]
-        propeller_speed = target_speed * 19.56*60
-        # print(target_x, target_y, target_yaw, target_speed, target_t)
+        if old_target_t!=0.0:
+            pre_distance=np.sqrt((old_target_x-target_x)**2+(old_target_y-target_y)**2)
+            true_distance=np.sqrt((s_ob[3]-target_x)**2+(s_ob[4]-target_y)**2)
+            target_speed=target_speed+(true_distance-pre_distance)/(target_t-old_target_t)
+        old_target_x,old_target_y,old_target_t=target_x,target_y,target_t
+        propeller_speed = target_speed * c_speed2motor*60
+        # print('target speed',target_speed)
         while time.time()<target_t:
             # print(target_x, target_y, target_yaw, target_speed, target_t)
             with t:
@@ -55,21 +64,12 @@ def trajectory_following(dev):
                 if idx!=idx_old:
                     break
                 s_ob = dev.sub_get('USV150.state')
-                print("t_x:{:.2f},t_y:{:.2f},t_yaw:{:.2f},t_t:{:.2f},x:{:.2f},y:{:.2f},yaw:{:.2f},t:{:.2f}".format(
-                    target_x,target_y,target_yaw,target_t,s_ob[3],s_ob[4],s_ob[5],time.time()))
-                # beta=np.arctan2(target_y-s_ob[4],target_x-s_ob[3])
-                # if yawRange(target_yaw-beta)>0:
-                #     coe=1
-                # else:
-                #     coe=-1
-                # e=coe*abs(cos(target_yaw)*(s_ob[4]-target_y-tan(target_yaw)*(s_ob[3]-target_x)))
-                # alpha = np.arctan2(e, delta)
-                # # print(target_yaw,alpha,s_ob[5],e)
                 target_yaw_t=cal_target_yaw_t(target_x,target_y,target_yaw,s_ob[3],s_ob[4],delta)
+                e=abs(cos(target_yaw)*(s_ob[4]-target_y-tan(target_yaw)*(s_ob[3]-target_x)))
                 d_pro = speed_control.update(target_speed - s_ob[0])
                 diff = yaw_control.update(yawRange(target_yaw_t-s_ob[5]))
-                n1 = propeller_speed + d_pro + diff * 480 / propeller_speed
-                n2 = propeller_speed + d_pro - diff * 480 / propeller_speed
+                n1 = propeller_speed + d_pro + diff /2
+                n2 = propeller_speed + d_pro - diff /2
                 if n1 > 1500:
                     n1 = 1500
                 elif n1 < -1500:
@@ -81,14 +81,7 @@ def trajectory_following(dev):
                 # print(n1,n2,s_ob)
                 dev.pub_set1('pro.left.speed', n1)
                 dev.pub_set1('pro.right.speed', n2)
-        print(p)
-
-def body2NE(posx,posy,yaw,dx,dy,dyaw):
-    x1=posx+dx*cos(yaw)-dy*sin(yaw)
-    y1=posy+dx*sin(yaw)+dy*cos(yaw)
-    yaw1=yawRange(yaw+dyaw)
-    return x1,y1,yaw1
-
+                print("e:{:.2f},t_speed:{:.2f},t_yaw:{:.2f},t_yaw_t:{:.2f},yaw:{:.2f},left:{:.0f},right:{:.0f}".format(e,target_speed, target_yaw,target_yaw_t, s_ob[5],n1,n2))
 
 if __name__=='__main__':
     try:

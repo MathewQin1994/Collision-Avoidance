@@ -44,7 +44,7 @@ def choose_case():
     elif case=='case2':
         s0 = tuple(np.array((100, 90, pi / 2, 0.8, 6), dtype=np.float64))
     elif case=='case3':
-        s0 = tuple(np.array((-29, 42, 0, 0, 0), dtype=np.float64))
+        s0 = tuple(np.array((-29, 39, 0, 0, 0), dtype=np.float64))
     else:
         raise
     return s0
@@ -53,8 +53,8 @@ if __name__=='__main__':
     try:
         dev=MsgDevice()
         dev.open()
-        dev.sub_connect('tcp://127.0.0.1:55002')
-        dev.pub_bind('tcp://0.0.0.0:55007')
+        dev.sub_connect('tcp://127.0.0.1:55202')
+        dev.pub_bind('tcp://0.0.0.0:55207')
         dev.sub_add_url('pro.left.speed')
         dev.sub_add_url('pro.right.speed')
         t=PeriodTimer(dt)

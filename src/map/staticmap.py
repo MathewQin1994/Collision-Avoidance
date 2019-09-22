@@ -29,7 +29,7 @@ class Map:
         self.offset = offset
         self.size=map.shape
 
-    def new_map(self,size,resolution,offset=(0,0)):
+    def new_map(self,size,resolution=1,offset=(0,0)):
         #size=(size_y,size_x)
         self.size=size
         self.resolution=resolution
