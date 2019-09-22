@@ -84,7 +84,7 @@ def generate_do_tra_true():
         do_s0['2'] = (24, -40, 0, 0.6, 0)
         do_goal['2'] = [(5, 63)]
     else:
-        raise
+        raise Exception
     for key in do_s0:
         do_tra_true[key] = do_tra_predict(do_s0[key],do_goal[key])
     return do_tra_true

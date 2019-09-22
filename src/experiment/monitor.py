@@ -10,6 +10,7 @@ import matplotlib.patches as patches
 import matplotlib as mpl
 import logging
 from collections import deque
+from src.tools.data_record import DataRecord
 import time
 
 dt=0.5
@@ -25,7 +26,7 @@ x_q=deque()
 y_q=deque()
 idx_old=-1
 def update_state(dev,fig,plot_lines):
-    s_ob = dev.sub_get('USV150.state')
+    s_ob = list(dev.sub_get('USV150.state'))
     print("u:{:.2f},v:{:.2f},r:{:.2f},x:{:.2f},y:{:.2f},yaw:{:.2f},".format(*s_ob))
     x_q.append(s_ob[3])
     y_q.append(s_ob[4])
@@ -37,6 +38,7 @@ def update_state(dev,fig,plot_lines):
         fig.lines.remove(plot_lines.pop()[0])
     plot_lines.append(fig.plot(y_q,x_q,'b'))
     plot_lines.append(fig.plot(s_ob[4], s_ob[3], 'b*'))
+    dr_state.write(s_ob+[time.time()])
 
 
 def update_planning(dev,fig,plot_lines):
@@ -46,7 +48,6 @@ def update_planning(dev,fig,plot_lines):
         while len(plot_lines) > 0:
             fig.lines.remove(plot_lines.pop()[0])
     elif idx!=idx_old:
-
         idx_old = idx
         target_points = np.array(dev.sub_get('target_points')).reshape(max_length, 5)
         # print(target_points[:length,:])
@@ -56,14 +57,24 @@ def update_planning(dev,fig,plot_lines):
         while len(plot_lines) > 0:
             fig.lines.remove(plot_lines.pop()[0])
         # plot_lines.append(fig.plot(tra[:, 1], tra[:, 0], '--b'))
-        for i in range(target_points.shape[0]):
+        for i in range(length):
             plot_lines.append(fig.plot(target_points[i,1], target_points[i,0], 'bo',markersize=2))
+        dr_point.write(['shape',length,5])
+        dr_point.write(target_points[:length,:])
+        return 1
+    return 0
+
+
 
 def update_do_pre(dev,fig,plot_lines):
     do_num = int(dev.sub_get1('do_num'))
     if do_num > 0:
         do_tra = np.array(dev.sub_get('do_tra')).reshape((3, max_length, 5))
         do_tra = do_tra[:do_num, int(time.time() - do_tra[0, 0, -1]):, :]
+        if do_tra.shape[1]>0 and update==1:
+            dr_do.write(['shape',do_tra.shape[0],do_tra.shape[1],do_tra.shape[2]])
+            dr_do.write(do_tra)
+
     while len(plot_lines)>0:
         fig.lines.remove(plot_lines.pop()[0])
     for i in range(do_num):
@@ -105,7 +116,7 @@ def choose_case():
     elif case=='case0':
         static_map.new_map(size=(100,100),offset=(-63, -54))
     else:
-        raise
+        raise Exception
     fig = plt.gca()
     extend = [
         static_map.offset[0],
@@ -124,6 +135,18 @@ def choose_case():
     fig.set_ylabel('N/m')
     fig.axis("equal")
     return fig
+
+def data_save():
+    file_time = time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime(time.time()))
+    dir_path = '../data_record/global_planning/'
+    state_file=dir_path+file_time+'_'+'state.txt'
+    dr_state=DataRecord(state_file)
+    do_file=dir_path+file_time+'_'+'do.txt'
+    dr_do=DataRecord(do_file)
+    target_point_file=dir_path+file_time+'_'+'point.txt'
+    dr_point=DataRecord(target_point_file)
+    return dr_state,dr_do,dr_point
+
 
 if __name__=='__main__':
     try:
@@ -148,16 +171,19 @@ if __name__=='__main__':
         plot_lines_state=[]
         plot_lines_tra=[]
         plot_lines_do_tra = []
+        dr_state, dr_do, dr_point=data_save()
         while True:
             with t:
-                dev.sub_get('target_points')
                 update_state(dev,fig,plot_lines_state)
-                update_planning(dev, fig, plot_lines_tra)
+                update=update_planning(dev, fig, plot_lines_tra)
                 update_do_pre(dev,fig,plot_lines_do_tra)
                 plt.pause(0.1)
 
     except (KeyboardInterrupt,Exception) as e:
         dev.close()
+        dr_state.close()
+        dr_do.close()
+        dr_point.close()
         raise
     finally:
         dev.close()

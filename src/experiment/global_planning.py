@@ -27,7 +27,7 @@ def choose_case():
         sg = tuple(np.array((26, -40, pi, 0.8, 0), dtype=np.float64))
         static_map.load_map(np.loadtxt('../map/static_map3.txt', dtype=np.int8), resolution=1, offset=(-63, -54))
     else:
-        raise
+        raise Exception
     return static_map
 
 def yawRange(x):

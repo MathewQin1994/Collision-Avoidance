@@ -46,7 +46,7 @@ def choose_case():
     elif case=='case3':
         s0 = tuple(np.array((-29, 42, 0, 0, 0), dtype=np.float64))
     else:
-        raise
+        raise Exception
     return s0
 
 if __name__=='__main__':

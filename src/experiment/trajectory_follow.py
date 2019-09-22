@@ -53,7 +53,8 @@ def trajectory_following(dev):
         if old_target_t!=0.0:
             pre_distance=np.sqrt((old_target_x-target_x)**2+(old_target_y-target_y)**2)
             true_distance=np.sqrt((s_ob[3]-target_x)**2+(s_ob[4]-target_y)**2)
-            target_speed=target_speed+(true_distance-pre_distance)/(target_t-old_target_t)
+            target_speed=target_speed+(true_distance-pre_distance)/(target_t-old_target_t)/4
+            target_speed=min(target_speed,1.0)
         old_target_x,old_target_y,old_target_t=target_x,target_y,target_t
         propeller_speed = target_speed * c_speed2motor*60
         # print('target speed',target_speed)
