@@ -16,6 +16,8 @@ def acceleration(u,v,r,n1,n2):
     return ax,ay,ar
 
 def state_update(s,n1,n2):
+    n1=n1+100
+    n2=n2-100
     n1,n2=n1/60,n2/60
     u, v, r, x, y, yaw=s
     ax,ay,ar=acceleration(u,v,r,n1,n2)
@@ -44,7 +46,7 @@ def choose_case():
     elif case=='case2':
         s0 = tuple(np.array((100, 90, pi / 2, 0.8, 6), dtype=np.float64))
     elif case=='case3':
-        s0 = tuple(np.array((-29, 42, 0, 0, 0), dtype=np.float64))
+        s0 = tuple(np.array((-19, 42, 0, 0, 0), dtype=np.float64))
     else:
         raise Exception
     return s0
@@ -63,7 +65,7 @@ if __name__=='__main__':
         s=(0,0,0,s[0],s[1],s[2])
         while True:
             with t:
-                n1 = dev.sub_get1('pro.left.speed')
+                n1 = -dev.sub_get1('pro.left.speed')
                 n2 = dev.sub_get1('pro.right.speed')
                 s=state_update(s,n1,n2)
                 s_ob = (

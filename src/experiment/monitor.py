@@ -112,7 +112,7 @@ def choose_case():
     elif case=='case2':
         static_map.load_map(np.loadtxt('../map/static_map2.txt', dtype=np.int8), resolution=0.5)
     elif case=='case3':
-        static_map.load_map(np.loadtxt('../map/static_map3.txt', dtype=np.int8), resolution=1, offset=(-63, -54))
+        static_map.load_map(np.loadtxt('../map/static_map3.txt', dtype=np.int8), resolution=1, offset=(-80,-35))
     elif case=='case0':
         static_map.new_map(size=(100,100),offset=(-63, -54))
     else:
@@ -156,6 +156,8 @@ if __name__=='__main__':
         dev.open()
         if sys.argv[1] == 'simulation':
             dev.sub_connect('tcp://127.0.0.1:55007')
+        elif sys.argv[1] == 'usv152':
+            dev.sub_connect('tcp://192.168.1.152:55207')
         else:
             dev.sub_connect('tcp://192.168.1.150:55007')
         dev.sub_connect('tcp://127.0.0.1:55008')

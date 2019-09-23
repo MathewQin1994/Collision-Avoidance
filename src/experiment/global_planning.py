@@ -24,8 +24,8 @@ def choose_case():
         sg = tuple(np.array((74 / 2, 150 / 2, pi, 0.8, 0), dtype=np.float64))
         static_map.load_map(np.loadtxt('../map/static_map2.txt', dtype=np.int8), resolution=0.5)
     elif case=='case3':
-        sg = tuple(np.array((26, -40, pi, 0.8, 0), dtype=np.float64))
-        static_map.load_map(np.loadtxt('../map/static_map3.txt', dtype=np.int8), resolution=1, offset=(-63, -54))
+        sg = tuple(np.array((48, -9, pi, 0.8, 0), dtype=np.float64))
+        static_map.load_map(np.loadtxt('../map/static_map3.txt', dtype=np.int8), resolution=1, offset=(-80,-35))
     else:
         raise Exception
     return static_map
@@ -55,12 +55,14 @@ def initialize():
     #通信和计时器
     dev = MsgDevice()
     dev.open()
-    if sys.argv[1]=='simulation':
+    if sys.argv[1] == 'simulation':
         dev.sub_connect('tcp://127.0.0.1:55007')
+    elif sys.argv[1] == 'usv152':
+        dev.sub_connect('tcp://192.168.1.152:55207')
     else:
         dev.sub_connect('tcp://192.168.1.150:55007')
     dev.sub_connect('tcp://127.0.0.1:55009')
-    dev.sub_connect('tcp://127.0.0.1:55001')  # receive rpm from joystick
+    dev.sub_connect('tcp://127.0.0.1:55001')
     dev.sub_add_url('js.autoctrl',default_values=0)
     dev.pub_bind('tcp://0.0.0.0:55008')
     dev.sub_add_url('USV150.state', default_values=(0, 0, 0, 0, 0, 0))
@@ -94,7 +96,7 @@ def initialize():
     return dev,t,dp
 
 def first_run(dp,dev):
-    start_time = time.time() + 3*dT
+    start_time = time.time() + 2*dT
     s_ob = dev.sub_get('USV150.state')
     s0 = (s_ob[3], s_ob[4], s_ob[5], s_ob[0], 0)
     for i in range(20):
@@ -126,6 +128,7 @@ def plan(dev,t,dp):
             s_ob = dev.sub_get('USV150.state')
             dev.pub_set('idx-length', [t.i - 1, target_points.shape[0]])
             # print(target_points)
+            # print(tra[7,:])
             ta1 = target_points.flatten().tolist()
             ta1.extend([0] * (max_length * 5 - len(ta1)))
             dev.pub_set('target_points', ta1)

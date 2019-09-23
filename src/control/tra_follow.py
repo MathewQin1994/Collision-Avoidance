@@ -9,7 +9,9 @@ import time
 from src.control.PID import PIDcontroller
 # from src.primitive.Trimaran import state_update,dt
 
-dt=0.2
+dt=0.1
+yaw_control = PIDcontroller(800, 3, 10, dt)
+speed_control = PIDcontroller(800, 3, 10, dt)
 
 def acceleration(u,v,r,n1,n2):
     ax=(58.0*r*v-6.7*u*abs(u)+15.9*r**2+0.01205*
@@ -20,6 +22,8 @@ def acceleration(u,v,r,n1,n2):
     return ax,ay,ar
 
 def state_update(s,n1,n2):
+    # n1=n1+100
+    # n2=n2-100
     n1,n2=n1/60,n2/60
     u, v, r, x, y, yaw=s
     ax,ay,ar=acceleration(u,v,r,n1,n2)
@@ -47,8 +51,6 @@ def yawRange(x):
 def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False):
     s=s0
     primitives_state=[]
-    yaw_control=PIDcontroller(800,3,10,dt)
-    speed_control=PIDcontroller(3200,3,10,dt)
     propeller_speed = target_speed * 19.56*60
     d=(3/pi*abs(target_yaw)+2)*target_speed/0.8
     delta=10
@@ -88,7 +90,7 @@ def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False)
         l +=s[0]*dt
         s=state_update(s,n1,n2)
         # print(e,alpha,n1,n2)
-        if i%1==0:
+        if i%10==0:
             primitives_state.append((s[3],s[4],s[5],s[0],i*dt,l))
         if plot:
             a1.plot(i*dt,s[5],"ok",markersize=2)
@@ -117,15 +119,15 @@ def get_all_control_primitives(save=True):
         key=(action_time,np.int(np.round(yaw*180/pi)))
         control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
 
-    action_time = 6
-    yaw_set = np.array([-pi/3,-pi / 6,pi / 6, pi / 3], dtype=np.float64)
-    for yaw in yaw_set:
-        key = (action_time, np.int(np.round(yaw * 180 / pi)))
-        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
+    # action_time = 6
+    # yaw_set = np.array([-pi/3,-pi / 6,pi / 6, pi / 3], dtype=np.float64)
+    # for yaw in yaw_set:
+    #     key = (action_time, np.int(np.round(yaw * 180 / pi)))
+    #     control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
 
     action_time = 6
     control_primitives[0.0] = dict()
-    yaw_set = np.array([-pi / 4, -pi / 6, -pi / 12, 0, pi / 12, pi / 6, pi / 4], dtype=np.float64)
+    yaw_set = np.array([0], dtype=np.float64)
     for yaw in yaw_set:
         key = (action_time, np.int(np.round(yaw * 180 / pi)))
         control_primitives[0.0][key] = np.array(
@@ -161,8 +163,6 @@ def trajectory_following(s0,target_points,fig=None):
 
     s=s0
     s=(s0[0]+0.1,s0[1]+0.1,s0[2]+0.01,s0[3]+1,s0[4]+1,s0[5]+0.1)
-    yaw_control=PIDcontroller(800,3,10,dt)
-    speed_control=PIDcontroller(3200,3,10,dt)
 
     # d=3/pi*target_yaw+2
     delta=10
@@ -335,15 +335,15 @@ if __name__=="__main__":
     # action_time=10
     # control_action_primitives(s0, target_speed, target_yaw, action_time, plot=True)
 
-    # control_primitives=get_all_control_primitives(save=False)
+    control_primitives=get_all_control_primitives(save=True)
     # control_primitives=np.load('control_primitives.npy').item()
     # control_primitives=zuotu()
-    # control_primitives_visual(control_primitives)
+    control_primitives_visual(control_primitives)
     # zuotu1(s0,0.8,pi/4,8)
 
 
-    fig = plt.gca()
-    fig.axis("equal")
-    control_primitives=np.load('../primitive/control_primitives.npy',allow_pickle=True).item()
-    target_points=generate_target_points(s0,control_primitives,10,fig)
-    trajectory_following(s0, target_points, fig)
+    # fig = plt.gca()
+    # fig.axis("equal")
+    # control_primitives=np.load('../primitive/control_primitives.npy',allow_pickle=True).item()
+    # target_points=generate_target_points(s0,control_primitives,10,fig)
+    # trajectory_following(s0, target_points, fig)

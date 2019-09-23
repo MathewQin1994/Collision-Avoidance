@@ -24,6 +24,7 @@ Img = Image.open('map.png')
 #图片实际高度
 
 # 模式L”为灰色图像，它的每个像素用8个bit表示，0表示黑，255表示白，其他数字表示不同的灰度。
+Img = Img.rotate(0)
 Img = Img.convert('L')
 # Img.save("test1.jpg")
 height=100
@@ -47,7 +48,7 @@ a=rotato_right_90(a)
 
 # photo.save("test2.jpg")
 
-
+b=np.loadtxt('../data_record/global_planning/2019-09-23-13-25-15_state.txt',delimiter=',')
 colors = ['white', 'gold', 'orange', 'blue', 'green', 'purple']
 bounds = [0,1,2,3,4,5,6]
 
@@ -56,12 +57,12 @@ norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
 
 static_map = Map()
 # static_map.load_map(np.loadtxt('../map/static_map1.txt',dtype=np.int8), 1)
-static_map.load_map(a, 1,offset=(-63,-54))
+static_map.load_map(a, 1,offset=(-80,-35))
 
 #静态障碍物
-circle_static_obstacles=((28,-10,15),)
-for ob in circle_static_obstacles:
-    static_map.add_static_obstacle(type="circle", config=ob)
+# circle_static_obstacles=((28,-10,15),)
+# for ob in circle_static_obstacles:
+#     static_map.add_static_obstacle(type="circle", config=ob)
 np.savetxt('static_map3.txt',static_map.map)
 
 fig = plt.gca()
@@ -80,4 +81,5 @@ mapplot = static_map.map.copy()
 for i in range(mapplot.shape[0]):
     mapplot[i, :] = mapplot[i, :][::-1]
 fig.imshow(mapplot.T, extent=extend, interpolation='none', cmap=cmap, norm=norm)
+fig.plot(b[:,4],b[:,3])
 plt.show()

@@ -12,7 +12,7 @@ max_length=200
 dt=0.2
 c_speed2motor=19.56
 yaw_control = PIDcontroller(800, 3, 10, dt)
-speed_control = PIDcontroller(3200, 3, 10, dt)
+speed_control = PIDcontroller(800, 3, 10, dt)
 
 def yawRange(x):
     if x > pi:
@@ -80,7 +80,7 @@ def trajectory_following(dev):
                 elif n2 < -1500:
                     n2 = -1500
                 # print(n1,n2,s_ob)
-                dev.pub_set1('pro.left.speed', n1)
+                dev.pub_set1('pro.left.speed', -n1)
                 dev.pub_set1('pro.right.speed', n2)
                 print("e:{:.2f},t_speed:{:.2f},t_yaw:{:.2f},t_yaw_t:{:.2f},yaw:{:.2f},left:{:.0f},right:{:.0f}".format(e,target_speed, target_yaw,target_yaw_t, s_ob[5],n1,n2))
 
@@ -90,10 +90,14 @@ if __name__=='__main__':
         dev.open()
         if sys.argv[1] == 'simulation':
             dev.sub_connect('tcp://127.0.0.1:55007')
+            dev.pub_bind('tcp://0.0.0.0:55002')
+        elif sys.argv[1] == 'usv152':
+            dev.sub_connect('tcp://192.168.1.152:55207')
+            dev.pub_bind('tcp://0.0.0.0:55202')
         else:
             dev.sub_connect('tcp://192.168.1.150:55007')
+            dev.pub_bind('tcp://0.0.0.0:55002')
         dev.sub_connect('tcp://127.0.0.1:55008')
-        dev.pub_bind('tcp://0.0.0.0:55002')
         dev.sub_add_url('USV150.state',default_values=(0,0,0,0,0,0))
         dev.sub_add_url('idx-length',default_values=[0,0])
         dev.sub_add_url('target_points', default_values=[0]*(max_length*5))
