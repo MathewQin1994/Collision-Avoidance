@@ -528,6 +528,7 @@ def evaluate_primitive(
                     np.dot(pos_do - primitives[i, 0:2], pos_do - primitives[i, 0:2]))
                 if not collision_pro_cal(distance,C_sigma * t, 4) >-1:
                     print(distance,C_sigma * t, 4)
+                    print(do_tra)
                 no_Pcsu_t *= (1 - collision_pro_cal(distance,
                                                     C_sigma * t, 4))
         # no_Pcsu *= no_Pcsu_t
