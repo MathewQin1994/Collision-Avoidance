@@ -13,7 +13,7 @@ from collections import deque
 from src.tools.data_record import DataRecord
 import time
 
-dt=0.5
+dt=1
 colors = ['white', 'gold', 'orange', 'blue', 'green', 'purple']
 bounds = [0,1,2,3,4,5,6]
 cmap = mpl.colors.ListedColormap(colors)
@@ -27,7 +27,9 @@ y_q=deque()
 idx_old=-1
 def update_state(dev,fig,plot_lines):
     s_ob = list(dev.sub_get('USV150.state'))
-    print("u:{:.2f},v:{:.2f},r:{:.2f},x:{:.2f},y:{:.2f},yaw:{:.2f},".format(*s_ob))
+    left=dev.sub_get1('left.Motor_SpeedCalc')
+    right=dev.sub_get1('right.Motor_SpeedCalc')
+    print("left:{:.2f},right:{:.2f},u:{:.2f},v:{:.2f},r:{:.2f},x:{:.2f},y:{:.2f},yaw:{:.2f}".format(left,right,*s_ob))
     x_q.append(s_ob[3])
     y_q.append(s_ob[4])
     if len(x_q)>60/dt:
@@ -38,7 +40,7 @@ def update_state(dev,fig,plot_lines):
         fig.lines.remove(plot_lines.pop()[0])
     plot_lines.append(fig.plot(y_q,x_q,'b'))
     plot_lines.append(fig.plot(s_ob[4], s_ob[3], 'b*'))
-    dr_state.write(s_ob+[time.time()])
+    dr_state.write(s_ob+[left,right,time.time()])
 
 
 def update_planning(dev,fig,plot_lines):
@@ -167,6 +169,8 @@ if __name__=='__main__':
         dev.sub_add_url('target_points', default_values=[0] * (max_length * 5))
         dev.sub_add_url('do_tra', default_values=[0] * (max_length * 5 * 3))
         dev.sub_add_url('do_num')
+        dev.sub_add_url('left.Motor_SpeedCalc')
+        dev.sub_add_url('right.Motor_SpeedCalc')
         time.sleep(0.5)
         t=PeriodTimer(dt)
         t.start()

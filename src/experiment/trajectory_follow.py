@@ -80,8 +80,8 @@ def trajectory_following(dev):
                 elif n2 < -1500:
                     n2 = -1500
                 # print(n1,n2,s_ob)
-                dev.pub_set1('pro.left.speed', -n1)
-                dev.pub_set1('pro.right.speed', n2)
+                dev.pub_set1('pro.left.speed', -n1+200)
+                dev.pub_set1('pro.right.speed', n2+200)
                 print("e:{:.2f},t_speed:{:.2f},t_yaw:{:.2f},t_yaw_t:{:.2f},yaw:{:.2f},left:{:.0f},right:{:.0f}".format(e,target_speed, target_yaw,target_yaw_t, s_ob[5],n1,n2))
 
 if __name__=='__main__':

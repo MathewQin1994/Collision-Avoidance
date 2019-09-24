@@ -12,7 +12,7 @@ max_length=200
 dt=0.2
 c_speed2motor=19.56
 yaw_control = PIDcontroller(800, 3, 10, dt)
-speed_control = PIDcontroller(3200, 3, 10, dt)
+speed_control = PIDcontroller(800, 3, 10, dt)
 
 def yawRange(x):
     if x > pi:

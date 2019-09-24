@@ -16,8 +16,8 @@ def acceleration(u,v,r,n1,n2):
     return ax,ay,ar
 
 def state_update(s,n1,n2):
-    n1=n1+100
-    n2=n2-100
+    n1=n1+200
+    n2=n2-200
     n1,n2=n1/60,n2/60
     u, v, r, x, y, yaw=s
     ax,ay,ar=acceleration(u,v,r,n1,n2)
@@ -72,6 +72,8 @@ if __name__=='__main__':
                 s[0] + 0.005 * np.random.randn(), s[1] + 0.005 * np.random.randn(), s[2] + 0.001 * np.random.randn(),
                 s[3] + 0.05 * np.random.randn(), s[4] + 0.05 * np.random.randn(), s[5] + 0.01 * np.random.randn())
                 dev.pub_set('USV150.state',s_ob)
+                dev.pub_set1('left.Motor_SpeedCalc',n1)
+                dev.pub_set1('right.Motor_SpeedCalc', n2)
                 print("left:{:.2f},right:{:.2f},u:{:.2f},v:{:.2f},r:{:.2f},x:{:.2f},y:{:.2f},yaw:{:.2f}".format(n1,n2,*s_ob))
     except (KeyboardInterrupt,Exception) as e:
         dev.close()
