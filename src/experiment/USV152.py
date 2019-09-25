@@ -63,7 +63,7 @@ if __name__=='__main__':
         s=(0,0,0,s[0],s[1],s[2])
         while True:
             with t:
-                n1 = dev.sub_get1('pro.left.speed')
+                n1 = -dev.sub_get1('pro.left.speed')
                 n2 = dev.sub_get1('pro.right.speed')
                 s=state_update(s,n1,n2)
                 s_ob = (

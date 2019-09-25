@@ -57,13 +57,15 @@ def initialize():
     dev.open()
     if sys.argv[1] == 'simulation':
         dev.sub_connect('tcp://127.0.0.1:55007')
+        dev.sub_connect('tcp://127.0.0.1:55001')
     elif sys.argv[1] == 'usv152':
         dev.sub_connect('tcp://192.168.1.152:55207')
+        dev.sub_connect('tcp://127.0.0.1:55201')
     else:
         dev.sub_connect('tcp://192.168.1.150:55007')
+        dev.sub_connect('tcp://127.0.0.1:55001')
     dev.sub_connect('tcp://127.0.0.1:55009')
-    dev.sub_connect('tcp://127.0.0.1:55001')
-    dev.sub_add_url('js.autoctrl',default_values=1)
+    dev.sub_add_url('js.autoctrl',default_values=0)
     dev.pub_bind('tcp://0.0.0.0:55008')
     dev.sub_add_url('USV150.state', default_values=(0, 0, 0, 0, 0, 0))
     dev.sub_add_url('do_tra', default_values=[0]*(max_length*5*3))
@@ -93,6 +95,7 @@ def initialize():
     dp.set_dynamic_obstacle(do_tra)
     s0 = (s_ob[3], s_ob[4], s_ob[5], s_ob[0], 0)
     dp.start(s0,sg)
+    dp.set_dynamic_obstacle(np.zeros((0, 0, 5)))
     return dev,t,dp
 
 def first_run(dp,dev):
@@ -212,8 +215,11 @@ def generate_target_points(n=6):
     # print(target_points)
     dev.pub_set('idx-length', [0, target_points.shape[0]])
     pub_target_points(target_points)
-    time.sleep(0.5)
-    return target_points
+    t.start()
+    while True:
+        with t:
+            pass
+    # return target_points
 
 if __name__=='__main__':
     try:
@@ -229,6 +235,8 @@ if __name__=='__main__':
         else:
             plan(dev,t,dp)
     except (KeyboardInterrupt,Exception) as e:
+        dev.pub_set('idx-length', [1, 1])
+        time.sleep(0.5)
         dev.pub_set('idx-length', [0, 0])
         time.sleep(0.5)
         dev.close()

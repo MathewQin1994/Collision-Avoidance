@@ -12,7 +12,7 @@ max_length=200
 dt=0.2
 c_speed2motor=19.56
 yaw_control = PIDcontroller(800, 3, 10, dt)
-speed_control = PIDcontroller(800, 3, 10, dt)
+speed_control = PIDcontroller(800, 0, 10, dt)
 
 def yawRange(x):
     if x > pi:
@@ -69,6 +69,7 @@ def trajectory_following(dev):
                 e=abs(cos(target_yaw)*(s_ob[4]-target_y-tan(target_yaw)*(s_ob[3]-target_x)))
                 d_pro = speed_control.update(target_speed - s_ob[0])
                 diff = yaw_control.update(yawRange(target_yaw_t-s_ob[5]))
+                print(d_pro,diff)
                 n1 = propeller_speed + d_pro + diff /2
                 n2 = propeller_speed + d_pro - diff /2
                 if n1 > 1500:
@@ -80,8 +81,8 @@ def trajectory_following(dev):
                 elif n2 < -1500:
                     n2 = -1500
                 # print(n1,n2,s_ob)
-                dev.pub_set1('pro.left.speed', -n1+200)
-                dev.pub_set1('pro.right.speed', n2+200)
+                dev.pub_set1('pro.left.speed', -n1)
+                dev.pub_set1('pro.right.speed', n2)
                 print("e:{:.2f},t_speed:{:.2f},t_yaw:{:.2f},t_yaw_t:{:.2f},yaw:{:.2f},left:{:.0f},right:{:.0f}".format(e,target_speed, target_yaw,target_yaw_t, s_ob[5],n1,n2))
 
 if __name__=='__main__':

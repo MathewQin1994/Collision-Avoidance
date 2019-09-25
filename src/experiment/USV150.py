@@ -16,8 +16,8 @@ def acceleration(u,v,r,n1,n2):
     return ax,ay,ar
 
 def state_update(s,n1,n2):
-    n1=n1+200
-    n2=n2-200
+    n1=n1+100
+    n2=n2-100
     n1,n2=n1/60,n2/60
     u, v, r, x, y, yaw=s
     ax,ay,ar=acceleration(u,v,r,n1,n2)
