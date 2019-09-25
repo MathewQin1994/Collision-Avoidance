@@ -236,7 +236,7 @@ if __name__=='__main__':
             plan(dev,t,dp)
     except (KeyboardInterrupt,Exception) as e:
         dev.pub_set('idx-length', [1, 1])
-        time.sleep(0.5)
+        time.sleep(1)
         dev.pub_set('idx-length', [0, 0])
         time.sleep(0.5)
         dev.close()
