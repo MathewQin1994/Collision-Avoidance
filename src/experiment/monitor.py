@@ -115,6 +115,10 @@ def choose_case():
         static_map.load_map(np.loadtxt('../map/static_map2.txt', dtype=np.int8), resolution=0.5)
     elif case=='case3':
         static_map.load_map(np.loadtxt('../map/static_map3.txt', dtype=np.int8), resolution=1, offset=(-80,-35))
+    elif case=='case4':
+        static_map.load_map(np.loadtxt('../map/static_map4.txt', dtype=np.int8), resolution=1, offset=(-80,-35))
+    elif case=='case5':
+        static_map.load_map(np.loadtxt('../map/static_map5.txt', dtype=np.int8), resolution=1, offset=(-80,-35))
     elif case=='case0':
         static_map.new_map(size=(100,100),offset=(-63, -54))
     else:

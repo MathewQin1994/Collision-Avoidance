@@ -23,6 +23,12 @@ def choose_case():
     elif case=='case2':
         sg = tuple(np.array((74 / 2, 150 / 2, pi, 0.8, 0), dtype=np.float64))
         static_map.load_map(np.loadtxt('../map/static_map2.txt', dtype=np.int8), resolution=0.5)
+    elif case=='case4':
+        static_map.load_map(np.loadtxt('../map/static_map4.txt', dtype=np.int8), resolution=1, offset=(-80,-35))
+        sg = tuple(np.array((48, -9, pi, 0.8, 0), dtype=np.float64))
+    elif case=='case5':
+        static_map.load_map(np.loadtxt('../map/static_map5.txt', dtype=np.int8), resolution=1, offset=(-80,-35))
+        sg = tuple(np.array((48, -9, pi, 0.8, 0), dtype=np.float64))
     elif case=='case3' or case=='test':
         sg = tuple(np.array((48, -9, pi, 0.8, 0), dtype=np.float64))
         static_map.load_map(np.loadtxt('../map/static_map3.txt', dtype=np.int8), resolution=1, offset=(-80,-35))
@@ -76,7 +82,7 @@ def initialize():
         time.sleep(0.1)
     #地图
     static_map=choose_case()
-    static_map.expand(1)
+    static_map.expand(3)
 
     #轨迹规划器
     resolution_time = 1
@@ -129,7 +135,7 @@ def pub_target_points(target_points):
 
 def new_start_point(target_points,s0):
     default_speed=0.8
-    if np.sqrt((target_points[0,0]-s0[0])**2+(target_points[0,1]-s0[1])**2)>5 or abs(target_points[0,2]-s0[2])>pi/4:
+    if np.sqrt((target_points[0,0]-s0[0])**2+(target_points[0,1]-s0[1])**2)>8 or abs(target_points[0,2]-s0[2])>pi/2:
         current_yaw = s0[2]
         current_pos = np.array(s0[0:2])
         current_time = s0[4]

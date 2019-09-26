@@ -48,7 +48,7 @@ a=rotato_right_90(a)
 
 # photo.save("test2.jpg")
 
-b=np.loadtxt('../data_record/global_planning/2019-09-23-13-25-15_state.txt',delimiter=',')
+# b=np.loadtxt('../data_record/global_planning/2019-09-23-13-25-15_state.txt',delimiter=',')
 colors = ['white', 'gold', 'orange', 'blue', 'green', 'purple']
 bounds = [0,1,2,3,4,5,6]
 
@@ -60,10 +60,10 @@ static_map = Map()
 static_map.load_map(a, 1,offset=(-80,-35))
 
 #静态障碍物
-# circle_static_obstacles=((28,-10,15),)
-# for ob in circle_static_obstacles:
-#     static_map.add_static_obstacle(type="circle", config=ob)
-np.savetxt('static_map3.txt',static_map.map)
+circle_static_obstacles=((36,14,8),(33,-6,8))
+for ob in circle_static_obstacles:
+    static_map.add_static_obstacle(type="circle", config=ob)
+np.savetxt('static_map5.txt',static_map.map)
 
 fig = plt.gca()
 extend = [
@@ -81,5 +81,5 @@ mapplot = static_map.map.copy()
 for i in range(mapplot.shape[0]):
     mapplot[i, :] = mapplot[i, :][::-1]
 fig.imshow(mapplot.T, extent=extend, interpolation='none', cmap=cmap, norm=norm)
-fig.plot(b[:,4],b[:,3])
+# fig.plot(b[:,4],b[:,3])
 plt.show()

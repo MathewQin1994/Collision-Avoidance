@@ -85,6 +85,13 @@ def generate_do_tra_true():
         # do_goal['2'] = [(5, 63)]
         do_s0['1'] = (48, -9, pi, 0.6, 0)
         do_goal['1'] = [(-19, 42)]
+    elif case=='case5':
+        # do_s0['1'] = (17, 51, pi, 0.6, 0)
+        # do_goal['1'] = [(-28, 42)]
+        # do_s0['2'] = (24, -40, 0, 0.6, 0)
+        # do_goal['2'] = [(5, 63)]
+        do_s0['1'] = (48, -9, pi, 0.6, 0)
+        do_goal['1'] = [(15, 70)]
 
     else:
         raise Exception
@@ -131,7 +138,7 @@ if __name__=='__main__':
     try:
         dev=MsgDevice()
         dev.open()
-        dev.sub_connect('tcp://127.0.0.1:55001')  # receive rpm from joystick
+        dev.sub_connect('tcp://127.0.0.1:55201')  # receive rpm from joystick
         dev.sub_add_url('js.autoctrl',default_values=0)
         dev.pub_bind('tcp://0.0.0.0:55009')
 
