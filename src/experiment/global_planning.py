@@ -8,9 +8,11 @@ from src.planner.Astar_jit import DeliberativePlanner
 from src.map.staticmap import Map
 import time
 
-dT=6
+# dT=6
 max_length=200
 control_primitives = np.load('../primitive/control_primitives.npy',allow_pickle=True).item()
+keys=list(control_primitives[0.0].keys())
+dT=keys[0][0]
 sg= tuple(np.array((41 / 2, 71 / 2, pi, 0.8, 0), dtype=np.float64))
 
 def choose_case():
