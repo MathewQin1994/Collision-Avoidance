@@ -7,6 +7,8 @@ from src.tools.msgdev import PeriodTimer
 from src.map.staticmap import Map
 import matplotlib as mpl
 
+plt.rcParams['font.sans-serif'] = ['SimHei']  # 用来正常显示中文标签
+plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
 colors = ['white', 'gold', 'orange', 'blue', 'green', 'purple']
 bounds = [0,1,2,3,4,5,6]
 cmap = mpl.colors.ListedColormap(colors)
@@ -107,7 +109,10 @@ class DataReappear:
                 self.update_state(fig,plot_lines_state)
                 self.update_planning(fig,plot_lines_tra)
                 self.update_do_pre(fig,plot_lines_do_tra)
+                fig.legend(loc='upper left')
+                a=fig.text(65,70,'T={}s'.format(t.i*self.dt))
                 plt.pause(0.01)
+                a.set_visible(False)
 
 
     def read_do(self):
@@ -146,8 +151,8 @@ class DataReappear:
             self.y_q.popleft()
         while len(plot_lines) > 0:
             fig.lines.remove(plot_lines.pop()[0])
-        plot_lines.append(fig.plot(self.y_q, self.x_q, 'b'))
-        plot_lines.append(fig.plot(s_ob[4], s_ob[3], 'b*'))
+        plot_lines.append(fig.plot(self.y_q, self.x_q, 'b',label='本船历史轨迹'))
+        plot_lines.append(fig.plot(s_ob[4], s_ob[3], 'b*',markersize=8,label='本船当前位置'))
 
     def update_planning(self, fig, plot_lines):
         if self.target_points.shape[0]==0:
@@ -157,8 +162,8 @@ class DataReappear:
         if self.time>=self.target_points[0,-1]:
             while len(plot_lines) > 0:
                 fig.lines.remove(plot_lines.pop()[0])
-            for i in range(self.target_points.shape[0]):
-                plot_lines.append(fig.plot(self.target_points[i, 1], self.target_points[i, 0], 'bo', markersize=2))
+            # for i in range(self.target_points.shape[0]):
+            plot_lines.append(fig.plot(self.target_points[:, 1], self.target_points[:, 0], 'bo', markersize=2,label='本船规划轨迹点'))
             self.target_points=self.read_point()
 
     def update_do_pre(self, fig, plot_lines):
@@ -171,8 +176,8 @@ class DataReappear:
                 fig.lines.remove(plot_lines.pop()[0])
             j=int(self.time-self.do_tra[0,0,-1])
             for i in range(self.do_tra.shape[0]):
-                plot_lines.append(fig.plot(self.do_tra[i, :, 1], self.do_tra[i, :, 0], 'r--'))
-                plot_lines.append(fig.plot(self.do_tra[i, j, 1], self.do_tra[i, j, 0], 'or', markersize=5))
+                plot_lines.append(fig.plot(self.do_tra[i, j:, 1], self.do_tra[i, j:, 0], 'r--',label='他船预测轨迹'))
+                plot_lines.append(fig.plot(self.do_tra[i, j, 1], self.do_tra[i, j, 0], '*r', markersize=8,label='他船当前位置'))
         elif self.time>=self.do_tra[0,0,-1]+self.dT:
             self.do_tra=self.read_do()
 

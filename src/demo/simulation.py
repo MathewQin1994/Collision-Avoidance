@@ -48,9 +48,9 @@ def simulation(s0,sG,dp,do_dp,fig,do_tra_true=dict(),do_goal=dict(),predict_time
             dp.set_dynamic_obstacle(do_tra)
         if tra is not None:
             if tra.shape[0] > predict_time:
-                fig.plot(tra[:predict_time, 1], tra[:predict_time, 0], 'b')
+                fig.plot(tra[:predict_time+1, 1], tra[:predict_time+1, 0], 'b')
                 for key in do_tra_true:
-                    fig.plot(do_tra_true[key][time_stamp:time_stamp + predict_time, 1],do_tra_true[key][time_stamp:time_stamp + predict_time, 0], 'r')
+                    fig.plot(do_tra_true[key][time_stamp:time_stamp + predict_time+1, 1],do_tra_true[key][time_stamp:time_stamp + predict_time+1, 0], 'r')
                 s0 = (tra[predict_time, 0], tra[predict_time, 1], tra[predict_time, 2], round(tra[predict_time, 3] / 0.8) * 0.8, predict_time)
                 if si==-1:
                     tra = np.array(dp.start(s0, sG,fig))
@@ -89,9 +89,9 @@ def simulation1(s0,sG,dp,fig,do_tra_true=dict(),predict_time=6):
             dp.set_dynamic_obstacle(do_tra)
         if tra is not None:
             if tra.shape[0] > predict_time:
-                fig.plot(tra[:predict_time, 1], tra[:predict_time, 0], 'b')
+                fig.plot(tra[:predict_time+1, 1], tra[:predict_time+1, 0], 'b')
                 for key in do_tra_true:
-                    fig.plot(do_tra_true[key][time_stamp:time_stamp + predict_time, 1],do_tra_true[key][time_stamp:time_stamp + predict_time, 0], 'r')
+                    fig.plot(do_tra_true[key][time_stamp:time_stamp + predict_time+1, 1],do_tra_true[key][time_stamp:time_stamp + predict_time+1, 0], 'r')
                 s0 = (tra[predict_time, 0], tra[predict_time, 1], tra[predict_time, 2], round(tra[predict_time, 3] / 0.8) * 0.8, 0)
                 if si==-7:
                     tra = np.array(dp.start(s0, sG,fig))
