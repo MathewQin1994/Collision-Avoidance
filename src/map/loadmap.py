@@ -60,10 +60,10 @@ static_map = Map()
 static_map.load_map(a, 1,offset=(-80,-35))
 
 #静态障碍物
-circle_static_obstacles=((36,14,8),(33,-6,8))
+circle_static_obstacles=((36,14,8),(33,-6,8),(16,37,10))
 for ob in circle_static_obstacles:
     static_map.add_static_obstacle(type="circle", config=ob)
-np.savetxt('static_map5.txt',static_map.map)
+np.savetxt('static_map6.txt',static_map.map)
 
 fig = plt.gca()
 extend = [
