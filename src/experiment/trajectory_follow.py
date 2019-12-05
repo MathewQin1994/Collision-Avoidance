@@ -84,6 +84,14 @@ def trajectory_following(dev):
                 dev.pub_set1('pro.left.speed', -n1)
                 dev.pub_set1('pro.right.speed', n2)
                 print("e:{:.2f},t_speed:{:.2f},t_yaw:{:.2f},t_yaw_t:{:.2f},yaw:{:.2f},left:{:.0f},right:{:.0f}".format(e,target_speed, target_yaw,target_yaw_t, s_ob[5],n1,n2))
+                dr_control.write([target_speed,target_yaw_t,s_ob[0],s_ob[5],n1,n2,time.time()])
+
+def data_save():
+    file_time = time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime(time.time()))
+    dir_path = '../data_record/global_planning/'
+    control_file=dir_path+file_time+'_'+'control.txt'
+    dr_control=DataRecord(control_file)
+    return dr_control
 
 if __name__=='__main__':
     try:
@@ -102,12 +110,14 @@ if __name__=='__main__':
         dev.sub_add_url('USV150.state',default_values=(0,0,0,0,0,0))
         dev.sub_add_url('idx-length',default_values=[0,0])
         dev.sub_add_url('target_points', default_values=[0]*(max_length*5))
+        dr_control=data_save()
         trajectory_following(dev)
     except (KeyboardInterrupt,Exception) as e:
         dev.pub_set1('pro.left.speed', 0)
         dev.pub_set1('pro.right.speed', 0)
         time.sleep(0.5)
         dev.close()
+        dr_control.close()
         raise
     finally:
         dev.close()

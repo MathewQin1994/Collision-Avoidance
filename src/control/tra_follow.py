@@ -113,7 +113,7 @@ def get_all_control_primitives(save=True):
     control_primitives=dict()
     action_time=8
     control_primitives[u]=dict()
-    yaw_set = np.array([-pi / 4, -pi / 12, 0, pi / 12, pi / 4], dtype=np.float64)
+    yaw_set = np.array([-pi / 3,-pi / 4, -pi / 6,-pi / 12, 0, pi / 12,pi / 6, pi / 4,pi / 3], dtype=np.float64)
     # yaw_set = np.array([-pi / 4, 0, pi / 4], dtype=np.float64)
     for yaw in yaw_set:
         key=(action_time,np.int(np.round(yaw*180/pi)))
@@ -140,17 +140,14 @@ def control_primitives_visual(control_primitives):
     fig_num=len(control_primitives)
     x_num=2
     y_num=int(ceil(fig_num/x_num))
-    fig=plt.figure()
-    a=[]
+    fig=plt.figure().gca()
+    fig.set_xlabel('y/m')
+    fig.set_ylabel('x/m')
+    fig.axis("equal")
     for i, k in enumerate(control_primitives.keys()):
-        a.append(fig.add_subplot(y_num,x_num,i+1))
-        a[i].set_xlabel('y/m')
-        a[i].set_ylabel('x/m')
-        a[i].set_title('{}m/s'.format(k))
-        a[i].axis("equal")
         for key,c in control_primitives[k].items():
-            a[i].plot([0]+c[:,1].tolist(),[0]+c[:,0].tolist())
-            a[i].annotate(str(key),(c[-1,1],c[-1,0]))
+            fig.plot([0]+c[:,1].tolist(),[0]+c[:,0].tolist())
+            fig.annotate("({},{},{},{})".format(k,key[0],key[1],c.shape[0]),(c[-1,1],c[-1,0]))
     plt.show()
 
 def cal_target_yaw_t(x0,y0,target_yaw,xob,yob,delta):
@@ -327,6 +324,40 @@ def zuotu1(s0,target_speed,target_yaw,action_time):
     plt.show()
         # print("u0:{} u:{} yaw:{} distance:{} time:{}".format(s0[0],target_speed,target_yaw,np.sqrt(s[3]**2+s[4]**2),i*dt))
 
+def zuotu2(save=False):
+    # time_set=np.array([10,5],dtype=np.int)
+    u=0.8
+    control_primitives=dict()
+    action_time=8
+    control_primitives[u]=dict()
+    yaw_set = np.array([-pi / 12, -pi / 4,0, pi / 12, pi / 4], dtype=np.float64)
+    # yaw_set = np.array([-pi / 4, 0, pi / 4], dtype=np.float64)
+    for yaw in yaw_set:
+        key=(u,np.int(np.round(yaw*180/pi)))
+        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
+
+    action_time = 8
+    yaw_set = np.array([-pi / 6, -pi / 3,pi / 6, pi / 3], dtype=np.float64)
+    for yaw in yaw_set:
+        key = (u, np.int(np.round(yaw * 180 / pi)))
+        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
+
+    yaw_set = np.array([0], dtype=np.float64)
+    for yaw in yaw_set:
+        key = (0, np.int(np.round(yaw * 180 / pi)))
+        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),0,yaw,action_time,plot=False),dtype=np.float64)
+
+    u=0
+    action_time=8
+    control_primitives[u]=dict()
+    yaw_set = np.array([0], dtype=np.float64)
+    # yaw_set = np.array([-pi / 4, 0, pi / 4], dtype=np.float64)
+    for yaw in yaw_set:
+        key=(0.8,np.int(np.round(yaw*180/pi)))
+        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),0.8,yaw,action_time,plot=False),dtype=np.float64)
+
+
+    return control_primitives
 
 if __name__=="__main__":
     s0 = (0, 0, 0, 0, 0, 0)
@@ -338,9 +369,10 @@ if __name__=="__main__":
     control_primitives=get_all_control_primitives(save=True)
     # control_primitives=np.load('control_primitives.npy').item()
     # control_primitives=zuotu()
-    control_primitives_visual(control_primitives)
+    # control_primitives_visual(control_primitives)
     # zuotu1(s0,0.8,pi/4,8)
-
+    # control_primitives=zuotu2()
+    control_primitives_visual(control_primitives)
 
     # fig = plt.gca()
     # fig.axis("equal")

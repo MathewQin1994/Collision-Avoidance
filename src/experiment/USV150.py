@@ -47,6 +47,8 @@ def choose_case():
         s0 = tuple(np.array((100, 90, pi / 2, 0.8, 6), dtype=np.float64))
     elif case=='case3':
         s0 = tuple(np.array((-19, 42, 0, 0, 0), dtype=np.float64))
+    elif case == 'case5':
+        s0 = tuple(np.array((-15.54, 44, 0.144, 0, 0), dtype=np.float64))
     else:
         raise Exception
     return s0

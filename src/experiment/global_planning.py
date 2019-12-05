@@ -73,7 +73,7 @@ def initialize():
         dev.sub_connect('tcp://192.168.1.150:55007')
         dev.sub_connect('tcp://127.0.0.1:55001')
     dev.sub_connect('tcp://127.0.0.1:55009')
-    dev.sub_add_url('js.autoctrl',default_values=0)
+    dev.sub_add_url('js.autoctrl',default_values=1)
     dev.pub_bind('tcp://0.0.0.0:55008')
     dev.sub_add_url('USV150.state', default_values=(0, 0, 0, 0, 0, 0))
     dev.sub_add_url('do_tra', default_values=[0]*(max_length*5*3))
@@ -180,7 +180,9 @@ def plan(dev,t,dp):
                 do_tra = np.array(dev.sub_get('do_tra')).reshape((3, max_length, 5))
                 do_tra = do_tra[:do_num, int(start_time - do_tra[0, 0, -1]):, :]
                 dp.set_dynamic_obstacle(do_tra)
+            t1=time.time()
             target_points = np.array(dp.start(s0, sg, tra_type='target_points'))
+            print("runtime is {},closelist node number is {}".format(time.time() - t1, len(dp.closelist)))
             target_points[:, -1] = target_points[:, -1] + start_time
             # tra = target_points[0:1, :]
             # for i in range(target_points.shape[0] - 1):

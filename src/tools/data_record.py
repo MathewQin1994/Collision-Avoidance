@@ -181,20 +181,76 @@ class DataReappear:
         elif self.time>=self.do_tra[0,0,-1]+self.dT:
             self.do_tra=self.read_do()
 
+def zuotu():
+    dir_path=r'C:\Users\40350\Desktop\研二上\毕业论文\Collision Avoidance\src\data_record\global_planning'
+    date='2019-11-28-16-15-18'
+    da=DataReappear(dir_path,date,'case5')
+    fig=plt.figure()
+
+    #目标点与实际位置距离
+    target_points=np.zeros((0,5))
+    while True:
+        data=da.read_point()
+        if data.shape[0]==0:
+            break
+        target_points=np.vstack((target_points,data[0,:]))
+    start_time=target_points[0,4]
+    state=np.loadtxt(r'C:\Users\40350\Desktop\研二上\毕业论文\Collision Avoidance\src\data_record\global_planning\2019-11-28-16-15-18_state.txt',delimiter=',')
+    # state = np.loadtxt(
+    #     r'C:\Users\40350\Desktop\研二上\毕业论文\Collision Avoidance\src\data_record\global_planning\2019-09-26-15-45-17_state.txt',
+    #     delimiter=',')
+    # fig0=plt.gca()
+    # fig0.plot(state[:,5])
+    state_xy=np.array([state[int(target_points[i,4]-state[0,8]),:] for i in range(target_points.shape[0])])
+    tmp=target_points[0:17,0:2]-state_xy[0:17,3:5]
+    dis = [np.inner(tmp[i,:], tmp[i,:]) for i in range(tmp.shape[0])]
+
+    fig1=fig.add_subplot(2,2,1)
+    fig1.set_ylabel('distance/m')
+    fig1.set_xlabel('t/s')
+    fig1.plot(target_points[0:17,4]-start_time,dis,label="轨迹跟随误差")
+    fig1.legend()
+
+    #期望艏向和实际艏向
+    control_record=np.loadtxt(r'C:\Users\40350\Desktop\研二上\毕业论文\Collision Avoidance\src\data_record\global_planning\2019-11-28-16-15-18_control.txt',delimiter=',')
+    control_record=control_record[np.where(control_record[:,6]>start_time)]
+
+    fig2=fig.add_subplot(2,2,3)
+    fig2.set_ylabel('surge speed/ms-1')
+    fig2.set_xlabel('t/s')
+    fig2.plot(control_record[:,6]-start_time,control_record[:,0],label="期望纵向速度")
+    fig2.plot(control_record[:, 6] - start_time, control_record[:, 2], label="实际纵向速度")
+    fig2.legend()
+
+    fig3=fig.add_subplot(2,2,2)
+    fig3.set_ylabel('yaw/rad')
+    fig3.set_xlabel('t/s')
+    fig3.plot(control_record[:,6]-start_time,control_record[:,1],label="期望艏向角")
+    fig3.plot(control_record[:, 6] - start_time, control_record[:, 3], label="实际艏向角")
+    fig3.legend()
+
+    fig4=fig.add_subplot(2,2,4)
+    fig4.set_ylabel('propeller speed/rpm')
+    fig4.set_xlabel('t/s')
+    fig4.plot(control_record[:,6]-start_time,control_record[:,4],label="左桨转速")
+    fig4.plot(control_record[:, 6] - start_time, control_record[:, 5], label="右桨转速")
+    fig4.legend()
+    plt.show()
+
+
 
 if __name__=='__main__':
-    # filename='../data_record/global_planning/2019-09-23-15-42-26_state.txt'
-    # b=np.loadtxt(filename,delimiter=',')
-    # fig=plt.gca()
-    # fig.plot(b[:,4],b[:,3])
-    # plt.show()
     dir_path=r'C:\Users\40350\Desktop\研二上\毕业论文\Collision Avoidance\src\data_record\global_planning'
-    date='2019-09-26-15-45-17'
-    # date='2019-09-26-13-12-28'
+    # date='2019-09-26-15-45-17'
+    date='2019-11-28-16-15-18'
     da=DataReappear(dir_path,date,'case5')
-    try:
-        da.reappear()
-    except:
-        da.close()
-        raise
-    # view_file(dir_path)
+    # try:
+    #     da.reappear()
+    # except:
+    #     da.close()
+    #     raise
+    # zuotu()
+
+    state = np.loadtxt(
+        r'C:\Users\40350\Desktop\研二上\毕业论文\Collision Avoidance\src\data_record\global_planning\2019-09-26-15-45-17_state.txt',
+        delimiter=',')

@@ -15,7 +15,7 @@ import logging
 
 colors = ['white', 'gold', 'orange', 'blue', 'green', 'purple']
 bounds = [0,1,2,3,4,5,6]
-
+color_order=['g','r']*2
 
 cmap = mpl.colors.ListedColormap(colors)
 norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
@@ -41,7 +41,7 @@ if __name__=="__main__":
     # 地图、起点、目标
     static_map = Map()
     static_map.load_map(np.loadtxt('../map/static_map1.txt', dtype=np.int8), resolution=0.5)
-    s0 = tuple(np.array((88, 103, 0.86-pi, 0.8, 0), dtype=np.float64))
+    s0 = tuple(np.array((81, 105, 0.86-pi, 0.8, 0), dtype=np.float64))
     # s0 = tuple(np.array((85, 100, 0.86-pi, 0.8, 0), dtype=np.float64))
     sG = tuple(np.array((41/2, 71/2, pi, 0.8, 0), dtype=np.float64))
     # s0 = tuple(np.array((35/2, 114/2, 0, 0.8, 0), dtype=np.float64))
@@ -116,17 +116,21 @@ if __name__=="__main__":
     # do_s0['1'] = (71, 2, 1.57, 0.8, 0)
     # do_goal['1'] = [(87, 22), (53 / 2, 121 / 2)]
 
-    do_s0['1'] = (87, 22, 1.57, 0.5, 0)
-    do_goal['1'] = [(53 / 2, 121 / 2)]
-    do_s0['2'] = (24, 54, 0, 0.8, 0)
-    do_goal['2'] = [(58, 49), (79, 95)]
+    do_s0['2'] = (87, 22, 1.57, 0.6, 0)
+    # do_goal['2'] = [(57, 37),(20, 57)]
+    do_goal['2'] = [(57, 37),(79,93)]
+    do_s0['1'] = (20, 60, 0, 0.8, 0)
+    do_goal['1'] = [(54, 43), (75, 95)]
 
-    # do_s0['3'] = (93, 44, pi, 0.4, 0)
-    # do_goal['3'] = [(66, 59),(57,41)]
-    # do_s0['4']=(75, 78, -pi/2, 0.4, 0)
-    # do_goal['4'] = (52, 49)
+    # do_s0['4'] = (87, 22, 1.57, 0.6, 0)
+    # do_goal['4'] = [(57, 37),(79,93)]
+    # do_goal['4'] = [(57, 37),(20, 57)]
+    do_s0['3']=(20, 60, 0, 0.8, 0)
+    do_goal['3'] = [(54, 43), (85, 27)]
 
-    for key in do_s0:
+    for i,key in enumerate(do_s0):
         do_tra_true[key] = do_tra_predict(do_s0[key], do_goal[key])
+        # point=np.array(do_goal[key])
+        # fig.plot(point[:,1],point[:,0],color_order[i]+'o', markersize=5,label='他船{}目标点'.format(key))
     simulation1(s0, sG, dp, fig, do_tra_true, predict_time=8)
     plt.show()
