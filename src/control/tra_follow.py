@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 # from msgdev import PeriodTimer
 import time
 from src.control.PID import PIDcontroller
-# from src.primitive.Trimaran import state_update,dt
+from src.experiment.trajectory_follow import cal_target_yaw_t,cal_target_speed
 
 dt=0.1
 yaw_control = PIDcontroller(800, 3, 10, dt)
@@ -22,23 +22,27 @@ def acceleration(u,v,r,n1,n2):
     return ax,ay,ar
 
 def state_update(s,n1,n2):
-    # n1=n1+100
-    # n2=n2-100
     n1,n2=n1/60,n2/60
     u, v, r, x, y, yaw=s
     ax,ay,ar=acceleration(u,v,r,n1,n2)
-    # u1=u+ax*dt+0.01*np.random.randn()
-    # v1=v+ay*dt+0.01*np.random.randn()
-    # r1=r+ar*dt+0.005*np.random.randn()
     u1=u+ax*dt
     v1=v+ay*dt
     r1=r+ar*dt
-    # x1=x+(u*cos(yaw)-v*sin(yaw))*dt+0.01*np.random.randn()
-    # y1=y+(u*sin(yaw)+v*cos(yaw))*dt+0.01*np.random.randn()
-    # yaw1=yaw+r*dt+0.01*np.random.randn()
     x1=x+(u*cos(yaw)-v*sin(yaw))*dt
     y1=y+(u*sin(yaw)+v*cos(yaw))*dt
     yaw1=yaw+r*dt
+    return (u1,v1,r1,x1,y1,yaw1)
+
+def state_update_noise(s,n1,n2):
+    n1,n2=n1/60,n2/60
+    u, v, r, x, y, yaw=s
+    ax,ay,ar=acceleration(u,v,r,n1,n2)
+    u1=u+ax*dt+0.005*np.random.randn()
+    v1=v+ay*dt+0.005*np.random.randn()
+    r1=r+ar*dt+0.001*np.random.randn()
+    x1=x+(u*cos(yaw)-v*sin(yaw))*dt+0.01*np.random.randn()+0.005
+    y1=y+(u*sin(yaw)+v*cos(yaw))*dt+0.01*np.random.randn()+0.005
+    yaw1=yaw+r*dt+0.001*np.random.randn()
     return (u1,v1,r1,x1,y1,yaw1)
 
 def yawRange(x):
@@ -54,6 +58,8 @@ def control_action_primitives(s0,target_speed,target_yaw,action_time,plot=False)
     propeller_speed = target_speed * 19.56*60
     d=(3/pi*abs(target_yaw)+2)*target_speed/0.8
     delta=10
+    yaw_control = PIDcontroller(800, 3, 10, dt)
+    speed_control = PIDcontroller(800, 3, 10, dt)
     if plot:
         fig=plt.figure()
         a1=fig.add_subplot(2,2,1)
@@ -150,44 +156,31 @@ def control_primitives_visual(control_primitives):
             fig.annotate("({},{},{},{})".format(k,key[0],key[1],c.shape[0]),(c[-1,1],c[-1,0]))
     plt.show()
 
-def cal_target_yaw_t(x0,y0,target_yaw,xob,yob,delta):
-    x1=sin(target_yaw)*cos(target_yaw)*(yob-y0)+cos(target_yaw)**2*xob+sin(target_yaw)**2*x0+delta*cos(target_yaw)
-    y1=sin(target_yaw)*cos(target_yaw)*(xob-x0)+cos(target_yaw)**2*y0+sin(target_yaw)**2*yob+delta*sin(target_yaw)
-    target_yaw_t=np.arctan2(y1-yob,x1-xob)
-    return target_yaw_t
-
-def trajectory_following(s0,target_points,fig=None):
-
-    s=s0
+def trajectory_following(s0,target_points,type=2,fig=None):
     s=(s0[0]+0.1,s0[1]+0.1,s0[2]+0.01,s0[3]+1,s0[4]+1,s0[5]+0.1)
-
-    # d=3/pi*target_yaw+2
+    actual_points=[[s[3],s[4]]]
+    record=[]
     delta=10
     i=1
-    # l=0
-    p=0
-    while p<len(target_points):
-        target_x, target_y, target_yaw, target_speed, target_t = target_points[p]
+    for p in range(1,len(target_points)):
+        if type==2:
+            old_target_x, old_target_y,_,_,old_target_t= target_points[p-1]
+            target_x, target_y, target_yaw, target_speed, target_t = target_points[p]
+            target_speed=cal_target_speed(old_target_x, old_target_y, old_target_t, target_x, target_y, target_t, target_speed, s[3], s[4])
+        else:
+            target_x, target_y, target_yaw, target_speed, target_t = target_points[p]
         propeller_speed = target_speed * 19.56*60
+
         if fig:
             fig.plot(target_y, target_x, "or", markersize=5)
-        # while np.sqrt((s[3]-target_x)**2+(s[4]-target_y)**2)>0.1:
         while i<target_t/dt:
-            s_ob = (
-            s[0] + 0.005 * np.random.randn(), s[1] + 0.005 * np.random.randn(), s[2] + 0.001 * np.random.randn(),
-            s[3] + 0.05 * np.random.randn(), s[4] + 0.05 * np.random.randn(), s[5] + 0.01 * np.random.randn())
-            # beta=np.arctan2(target_y-s_ob[4],target_x-s_ob[3])
-            # if yawRange(target_yaw-beta)>0:
-            #     coe=1
-            # else:
-            #     coe=-1
-            # e=coe*abs(cos(target_yaw)*(s_ob[4]-target_y-tan(target_yaw)*(s_ob[3]-target_x)))
-            # alpha = np.arctan2(e, delta)
-            # # print(target_yaw,alpha,s_ob[5],e)
-            target_yaw_t = cal_target_yaw_t(target_x, target_y, target_yaw, s_ob[3], s_ob[4], delta)
-            d_pro = speed_control.update(target_speed - s_ob[0])
-            diff = yaw_control.update(yawRange(target_yaw_t-s_ob[5]))
-            print(target_yaw,target_yaw_t,s_ob[5],diff)
+            if type==0:
+                target_yaw_t=target_yaw
+            else:
+                target_yaw_t = cal_target_yaw_t(target_x, target_y, target_yaw, s[3], s[4], delta)
+            d_pro = speed_control.update(target_speed - s[0])
+            diff = yaw_control.update(yawRange(target_yaw_t-s[5]))
+            # print(target_yaw,target_yaw_t,s[5],diff,target_speed,s)
             n1 = propeller_speed + d_pro + diff * 480 / propeller_speed
             n2 = propeller_speed + d_pro - diff * 480 / propeller_speed
             if n1 > 1500:
@@ -198,184 +191,125 @@ def trajectory_following(s0,target_points,fig=None):
                 n2 = 1500
             elif n2 < -1500:
                 n2 = -1500
-            # print(n1,n2)
-            # l += s[0] * dt
-            s = state_update(s, n1, n2)
+            #record=[x,y,target_yaw,yaw,target_speed,u,n1,n2]
+            record.append([s[3],s[4],target_yaw_t, s[5], target_speed, s[0], n1, n2])
+            s = state_update_noise(s, n1, n2)
             if fig:
                 fig.plot(s[4], s[3], "ob", markersize=2)
                 plt.pause(0.01)
             i+=1
-        p+=1
-        print(p)
+        actual_points.append([s[3], s[4]])
+    return np.array(actual_points),np.array(record)
+
 
 def generate_target_points(s0,control_primitives,n,fig=None):
     default_speed=0.8
-    s=s0
-    target_points=[]
-    for _ in range(n):
+    s=[s0[3],s0[4],s0[5],s0[0],0]
+    target_points=[s]
+    state_all = []
+    annotate=[]
+    for num in range(n):
         current_yaw = s[2]
         current_pos = np.array(s[0:2])
         current_time = s[4]
         current_speed = round(s[3] / default_speed) * default_speed
         keys=list(control_primitives[current_speed].keys())
+        np.random.seed(num+10)
         key=keys[np.random.randint(0,len(keys))]
         ucd=control_primitives[current_speed][key]
-        state_all=[]
         for i in range(ucd.shape[0]):
             state_all.append([current_pos[0] + ucd[i, 0] * cos(current_yaw) - ucd[i, 1] * sin(current_yaw),
                               current_pos[1] + ucd[i, 0] * sin(current_yaw) + ucd[i, 1] * cos(current_yaw),
                               yawRange(current_yaw + ucd[i, 2]),
                               ucd[i, 3],
                               current_time + ucd[i, 4]])
-        s = tuple(state_all[-1])
+
+        s=state_all[-1]
         target_points.append(s)
-        if fig:
-            fig.plot(s[1],s[0],"ob", markersize=2)
-            state_all=np.array(state_all)
-            fig.plot(state_all[:,1],state_all[:,0],'b')
-    # plt.show()
-    return target_points
+        annotate.append(("({},{},{},{})".format(current_speed, default_speed, key[1], ucd.shape[0])))
+    target_points=np.array(target_points)
+    state_all=np.array(state_all)
+    if fig:
+        fig.plot(target_points[:,1],target_points[:,0],"ob", markersize=3)
+        fig.plot(state_all[:,1],state_all[:,0],'b--')
+    return target_points,state_all,annotate
 
-def zuotu(save=False):
-    # time_set=np.array([10,5],dtype=np.int)
-    u=0.8
-    control_primitives=dict()
-    action_time=10
-    control_primitives[u]=dict()
-    yaw_set = np.array([-pi / 12, -pi / 4,0, pi / 12, pi / 4], dtype=np.float64)
-    # yaw_set = np.array([-pi / 4, 0, pi / 4], dtype=np.float64)
-    for yaw in yaw_set:
-        key=(u,np.int(np.round(yaw*180/pi)))
-        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
+def zuotu(target_points,actual_points,state_all,record,annotate=None):
+    fig=plt.figure()
+    times=np.array(range(record.shape[0]))*0.1
+    #位置时历
+    fig1=fig.add_subplot(2,2,1)
+    fig1.set_ylabel('N/m')
+    fig1.set_xlabel('E/m')
+    fig1.axis("equal")
+    fig1.plot(target_points[:, 1], target_points[:, 0], "or", markersize=3,label="目标状态位置")
+    fig1.plot(state_all[:, 1], state_all[:, 0], 'b--',label='规划轨迹')
+    fig1.plot(record[:,1],record[:,0],'b',label='实际轨迹')
+    fig1.plot(actual_points[:, 1], actual_points[:, 0], "ob", markersize=3, label="目标状态时刻的实际位置")
+    for i,anno in enumerate(annotate):
+        fig1.annotate(anno,(target_points[i+1,1]+2,target_points[i+1,0]))
+    fig1.legend()
 
-    action_time = 10
-    yaw_set = np.array([-pi / 6, -pi / 3,pi / 6, pi / 3], dtype=np.float64)
-    for yaw in yaw_set:
-        key = (u, np.int(np.round(yaw * 180 / pi)))
-        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
+    #期望艏向和实际艏向
+    fig2=fig.add_subplot(2,2,3)
+    fig2.set_ylabel('surge speed/ms-1')
+    fig2.set_xlabel('t/s')
+    fig2.plot(times,record[:,4],label="瞬时期望纵向速度")
+    fig2.plot(times,record[:,5], label="实际纵向速度")
+    fig2.legend()
 
-    u=1.2
-    action_time=10
-    control_primitives[u]=dict()
-    yaw_set = np.array([-pi / 12, -pi / 4, 0, pi / 12, pi / 4], dtype=np.float64)
-    # yaw_set = np.array([-pi / 4, 0, pi / 4], dtype=np.float64)
-    for yaw in yaw_set:
-        key=(u,np.int(np.round(yaw*180/pi)))
-        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
+    fig3=fig.add_subplot(2,2,2)
+    fig3.set_ylabel('yaw/rad')
+    fig3.set_xlabel('t/s')
+    fig3.plot(times,record[:,2],label="瞬时期望艏向角")
+    fig3.plot(times,record[:,3], label="实际艏向角")
+    fig3.legend()
 
-    action_time = 10
-    yaw_set = np.array([-pi / 6, -pi / 3, pi / 6, pi / 3], dtype=np.float64)
-    for yaw in yaw_set:
-        key = (u, np.int(np.round(yaw * 180 / pi)))
-        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
-
-    return control_primitives
-
-def zuotu1(s0,target_speed,target_yaw,action_time):
-
-    yaw_control=PIDcontroller(800,3,10,dt)
-    speed_control=PIDcontroller(3200,3,10,dt)
-    propeller_speed = target_speed * 19.56*60
-    d=(3/pi*abs(target_yaw)+2)*target_speed/0.8
-    delta=10
-    fig=plt.gca()
-    fig.set_xlabel('y/m')
-    fig.set_ylabel('x/m')
-    fig.axis("equal")
-
-    color=['r','g','b','y']
-    ds=[d/2,0.75*d,1.05*d,1.5*d]
-    for d,c in zip(ds,color):
-        s = s0
-        primitives_state = []
-        i=1
-        l=0
-        fig.plot([0, (delta/2-d/2) * tan(target_yaw)], [d, delta/2+d/2], "--{}".format(c))
-        while True:
-            #s=(u,v,r,x,y,yaw)
-            e=abs(cos(target_yaw))*(s[4]-(s[3]-d)*tan(target_yaw))
-            alpha=np.arctan2(e,delta)
-
-            d_pro=speed_control.update(target_speed-s[0])
-            diff=yaw_control.update(yawRange(target_yaw-alpha-s[5]))
-            n1 = propeller_speed + d_pro + diff * 480 / propeller_speed
-            n2 = propeller_speed + d_pro - diff * 480 / propeller_speed
-            if n1 > 1500:
-                n1 = 1500
-            elif n1 < -1500:
-                n1 = -1500
-            if n2 > 1500:
-                n2 = 1500
-            elif n2 < -1500:
-                n2 = -1500
-            # print(n1,n2)
-            l +=s[0]*dt
-            s=state_update(s,n1,n2)
-            # print(e,alpha,n1,n2)
-            primitives_state.append((s[3],s[4],s[5],s[0],i*dt,l))
-
-            # fig.plot(s[4],s[3],"o{}".format(c),markersize=2)
-            # plt.pause(0.0001)
-            if i >= action_time/dt:
-                break
-            i+=1
-        primitives_state=np.array(primitives_state)
-        fig.plot(primitives_state[:,1],primitives_state[:,0],c)
+    fig4=fig.add_subplot(2,2,4)
+    fig4.set_ylabel('propeller speed/rpm')
+    fig4.set_xlabel('t/s')
+    fig4.plot(times,record[:,6],label="左桨转速")
+    fig4.plot(times,record[:,7], label="右桨转速")
+    fig4.legend()
     plt.show()
-        # print("u0:{} u:{} yaw:{} distance:{} time:{}".format(s0[0],target_speed,target_yaw,np.sqrt(s[3]**2+s[4]**2),i*dt))
 
-def zuotu2(save=False):
-    # time_set=np.array([10,5],dtype=np.int)
-    u=0.8
-    control_primitives=dict()
-    action_time=8
-    control_primitives[u]=dict()
-    yaw_set = np.array([-pi / 12, -pi / 4,0, pi / 12, pi / 4], dtype=np.float64)
-    # yaw_set = np.array([-pi / 4, 0, pi / 4], dtype=np.float64)
-    for yaw in yaw_set:
-        key=(u,np.int(np.round(yaw*180/pi)))
-        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
-
-    action_time = 8
-    yaw_set = np.array([-pi / 6, -pi / 3,pi / 6, pi / 3], dtype=np.float64)
-    for yaw in yaw_set:
-        key = (u, np.int(np.round(yaw * 180 / pi)))
-        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
-
-    yaw_set = np.array([0], dtype=np.float64)
-    for yaw in yaw_set:
-        key = (0, np.int(np.round(yaw * 180 / pi)))
-        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),0,yaw,action_time,plot=False),dtype=np.float64)
-
-    u=0
-    action_time=8
-    control_primitives[u]=dict()
-    yaw_set = np.array([0], dtype=np.float64)
-    # yaw_set = np.array([-pi / 4, 0, pi / 4], dtype=np.float64)
-    for yaw in yaw_set:
-        key=(0.8,np.int(np.round(yaw*180/pi)))
-        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),0.8,yaw,action_time,plot=False),dtype=np.float64)
-
-
-    return control_primitives
+def compare():
+    s0 = (0, 0, 0, 0, 0,0)
+    control_primitives=np.load('../primitive/control_primitives.npy',allow_pickle=True).item()
+    target_points,state_all,annotate=generate_target_points(s0,control_primitives,10)
+    actual_points0,record0=trajectory_following(s0, target_points,type=0)
+    actual_points1, record1 = trajectory_following(s0, target_points, type=1)
+    actual_points2, record2 = trajectory_following(s0, target_points, type=2)
+    tmp0=target_points[:,:2]-actual_points0
+    dis0 = [np.inner(tmp0[i,:], tmp0[i,:]) for i in range(tmp0.shape[0])]
+    tmp1=target_points[:,:2]-actual_points1
+    dis1 = [np.inner(tmp1[i,:], tmp1[i,:]) for i in range(tmp1.shape[0])]
+    tmp2=target_points[:,:2]-actual_points2
+    dis2 = [np.inner(tmp2[i,:], tmp2[i,:]) for i in range(tmp2.shape[0])]
+    fig1=plt.gca()
+    fig1.set_ylabel('distance/m')
+    fig1.set_xlabel('t/s')
+    times=target_points[:,4]
+    fig1.plot(times,dis0,label="阶跃信号控制器")
+    fig1.plot(times,dis1, label="经典LOS循迹控制器")
+    fig1.plot(times,dis2, label="改进LOS循迹控制器")
+    fig1.legend()
+    # zuotu(target_points,actual_points,state_all,record)
 
 if __name__=="__main__":
-    s0 = (0, 0, 0, 0, 0, 0)
+    s0 = (0, 0, 0, 0, 0,0)
     # target_speed=0.8
     # target_yaw=pi/12
     # action_time=10
-    # control_action_primitives(s0, target_speed, target_yaw, action_time, plot=True)
-
-    control_primitives=get_all_control_primitives(save=True)
-    # control_primitives=np.load('control_primitives.npy').item()
-    # control_primitives=zuotu()
+    # primitives_state=np.array(control_action_primitives((0,0,0,0,0,0), 0.8, 0, 8, plot=False))
+    # control_primitives=get_all_control_primitives(save=True)
     # control_primitives_visual(control_primitives)
-    # zuotu1(s0,0.8,pi/4,8)
-    # control_primitives=zuotu2()
-    control_primitives_visual(control_primitives)
+    # control_primitives_visual(control_primitives)
 
-    # fig = plt.gca()
-    # fig.axis("equal")
+
     # control_primitives=np.load('../primitive/control_primitives.npy',allow_pickle=True).item()
-    # target_points=generate_target_points(s0,control_primitives,10,fig)
-    # trajectory_following(s0, target_points, fig)
+    # target_points,state_all,annotate=generate_target_points(s0,control_primitives,10)
+    # actual_points,record=trajectory_following(s0, target_points,type=2)
+    # zuotu(target_points,actual_points,state_all,record,annotate=annotate)
+
+    compare()

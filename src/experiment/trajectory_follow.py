@@ -27,6 +27,12 @@ def cal_target_yaw_t(x0,y0,target_yaw,xob,yob,delta):
     target_yaw_t=np.arctan2(y1-yob,x1-xob)
     return target_yaw_t
 
+def cal_target_speed(old_target_x,old_target_y,old_target_t,target_x,target_y,target_t,target_speed,x,y):
+    pre_distance = np.sqrt((old_target_x - target_x) ** 2 + (old_target_y - target_y) ** 2)
+    true_distance = np.sqrt((x - target_x) ** 2 + (y - target_y) ** 2)
+    target_speed = target_speed + (true_distance - pre_distance) / (target_t - old_target_t) / 2
+    return target_speed
+
 def trajectory_following(dev):
     delta=10
     p=0
