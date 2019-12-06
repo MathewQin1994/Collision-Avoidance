@@ -10,7 +10,8 @@ import time
 
 # dT=6
 max_length=200
-control_primitives = np.load('../primitive/control_primitives.npy',allow_pickle=True).item()
+primitive_file_path = '../primitive/control_primitives.npy'
+control_primitives = np.load(primitive_file_path,allow_pickle=True).item()
 keys=list(control_primitives[0.0].keys())
 dT=keys[0][0]
 sg= tuple(np.array((41 / 2, 71 / 2, pi, 0.8, 0), dtype=np.float64))
@@ -90,7 +91,7 @@ def initialize():
     resolution_time = 1
     resolution_pos = 1
     default_speed = 0.8
-    primitive_file_path = '../primitive/control_primitives.npy'
+
     e = 1.2
     dp = DeliberativePlanner(
         static_map,

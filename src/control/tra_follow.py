@@ -10,8 +10,8 @@ from src.control.PID import PIDcontroller
 from src.experiment.trajectory_follow import cal_target_yaw_t,cal_target_speed
 
 dt=0.1
-yaw_control = PIDcontroller(800, 3, 10, dt)
-speed_control = PIDcontroller(800, 3, 10, dt)
+yaw_control = PIDcontroller(800, 0, 10, dt)
+speed_control = PIDcontroller(800, 0, 10, dt)
 
 def acceleration(u,v,r,n1,n2):
     ax=(58.0*r*v-6.7*u*abs(u)+15.9*r**2+0.01205*
@@ -125,11 +125,11 @@ def get_all_control_primitives(save=True):
         key=(action_time,np.int(np.round(yaw*180/pi)))
         control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
 
-    # action_time = 6
-    # yaw_set = np.array([-pi/3,-pi / 6,pi / 6, pi / 3], dtype=np.float64)
-    # for yaw in yaw_set:
-    #     key = (action_time, np.int(np.round(yaw * 180 / pi)))
-    #     control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
+    action_time = 8
+    yaw_set = np.array([-pi/3,-pi / 6,pi / 6, pi / 3], dtype=np.float64)
+    for yaw in yaw_set:
+        key = (action_time, np.int(np.round(yaw * 180 / pi)))
+        control_primitives[u][key]=np.array(control_action_primitives((u,0,0,0,0,0),u,yaw,action_time,plot=False),dtype=np.float64)
 
     action_time = 8
     control_primitives[0.0] = dict()
