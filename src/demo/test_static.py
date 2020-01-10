@@ -6,6 +6,10 @@ import time
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import logging
+import itertools
+
+plt.rcParams['font.sans-serif'] = ['SimHei']  # 用来正常显示中文标签
+plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
 
 def test_static():
     # 参数
@@ -13,7 +17,7 @@ def test_static():
     resolution_pos = 1
     default_speed = 0.8
     primitive_file_path = '../primitive/control_primitives.npy'
-    e =0.8
+    e =1.2
 
     # 起点、目标、地图
     s0 = tuple(np.array((5, 5, 0, 0.8, 0), dtype=np.float64))
@@ -46,6 +50,7 @@ def test_static():
         rect = patches.Rectangle((ob[0], ob[1]), ob[2], ob[3], color='y')
         fig.add_patch(rect)
 
+    #预热
     dp = DeliberativePlanner(
         static_map,
         resolution_pos,
@@ -59,20 +64,30 @@ def test_static():
     logging.info("runtime is {},closelist node number is {},trajectory total time is {}".format(
         time.time() - start_time, len(dp.closelist), tra[-1, -1]))
 
-    start_time = time.time()
-    # dp.set_dynamic_obstacle(do_tra)
-    tra = np.array(dp.start(s0, sG))
-    logging.info("runtime is {},closelist node number is {},trajectory total time is {}".format(
-        time.time() - start_time, len(dp.closelist), tra[-1, -1]))
+    #测试
+    resolution_pos_set=[1]
+    e_set=[5]
+    for resolution_pos in resolution_pos_set:
+        for e in e_set:
+            dp = DeliberativePlanner(
+                static_map,
+                resolution_pos,
+                resolution_time,
+                default_speed,
+                primitive_file_path,
+                e)
 
-    fig.plot(tra[:, 1], tra[:, 0], "b")
-    # for i in range(tra.shape[0]):
-    #     if tra[i, 3] == 0.8:
-    #         fig.plot(tra[i, 1], tra[i, 0], "or", markersize=2)
-    # a = np.array(list(dp.closelist), dtype=np.float64)
-    # fig.plot(a[:,1],a[:,0],'ob',markersize=1)
-    plt.show()
-    return tra
+            start_time = time.time()
+            # dp.set_dynamic_obstacle(do_tra)
+            tra = np.array(dp.start(s0, sG))
+            dis=tra[-1,:2]-np.array(sG)[:2]
+            add_time=np.sqrt(np.inner(dis,dis))/default_speed
+            logging.info("runtime is {},closelist node number is {},trajectory total time is {}".format(
+                time.time() - start_time, len(dp.closelist), tra[-1, -1]+add_time))
+            a=fig.plot(tra[:, 1], tra[:, 0], "b--",label='规划轨迹')
+            fig.legend(loc='lower right')
+            fig.get_figure().savefig(r'C:\Users\40350\Desktop\研二上\毕业论文\大论文\图\仿真\res_pos_{},dyaw_90,e_{}.png'.format(resolution_pos,e))
+            fig.lines.remove(a[0])
 
 def test_static_nojit():
     from src.planner.Astar_nojit import DeliberativePlanner

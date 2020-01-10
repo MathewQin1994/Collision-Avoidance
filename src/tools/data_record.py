@@ -102,7 +102,7 @@ class DataReappear:
         plot_lines_do_tra = []
         self.do_tra=self.read_do()
         self.target_points=self.read_point()
-        t=PeriodTimer(0.1)
+        t=PeriodTimer(0.5)
         t.start()
         while True:
             with t:
@@ -244,13 +244,13 @@ if __name__=='__main__':
     # date='2019-09-26-15-45-17'
     date='2019-11-28-16-15-18'
     da=DataReappear(dir_path,date,'case5')
-    # try:
-    #     da.reappear()
-    # except:
-    #     da.close()
-    #     raise
+    try:
+        da.reappear()
+    except:
+        da.close()
+        raise
     # zuotu()
 
-    state = np.loadtxt(
-        r'C:\Users\40350\Desktop\研二上\毕业论文\Collision Avoidance\src\data_record\global_planning\2019-09-26-15-45-17_state.txt',
-        delimiter=',')
+    # state = np.loadtxt(
+    #     r'C:\Users\40350\Desktop\研二上\毕业论文\Collision Avoidance\src\data_record\global_planning\2019-09-26-15-45-17_state.txt',
+    #     delimiter=',')

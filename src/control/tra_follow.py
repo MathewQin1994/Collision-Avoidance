@@ -281,11 +281,11 @@ def compare():
     actual_points1, record1 = trajectory_following(s0, target_points, type=1)
     actual_points2, record2 = trajectory_following(s0, target_points, type=2)
     tmp0=target_points[:,:2]-actual_points0
-    dis0 = [np.inner(tmp0[i,:], tmp0[i,:]) for i in range(tmp0.shape[0])]
+    dis0 = [np.sqrt(np.inner(tmp0[i,:], tmp0[i,:])) for i in range(tmp0.shape[0])]
     tmp1=target_points[:,:2]-actual_points1
-    dis1 = [np.inner(tmp1[i,:], tmp1[i,:]) for i in range(tmp1.shape[0])]
+    dis1 = [np.sqrt(np.inner(tmp1[i,:], tmp1[i,:])) for i in range(tmp1.shape[0])]
     tmp2=target_points[:,:2]-actual_points2
-    dis2 = [np.inner(tmp2[i,:], tmp2[i,:]) for i in range(tmp2.shape[0])]
+    dis2 = [np.sqrt(np.inner(tmp2[i,:], tmp2[i,:])) for i in range(tmp2.shape[0])]
     fig1=plt.gca()
     fig1.set_ylabel('distance/m')
     fig1.set_xlabel('t/s')
